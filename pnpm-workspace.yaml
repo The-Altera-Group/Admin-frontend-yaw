@@ -1,9 +1,0 @@
-packages:
-  # Frontend applications
-  - 'apps/*'
-  
-  # Shared packages and libraries
-  - 'packages/*'
-  
-  # Documentation (if using a docs framework like Docusaurus)
-  - 'docs/website'
