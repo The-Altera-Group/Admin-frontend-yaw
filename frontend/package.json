@@ -1,23 +1,20 @@
 {
   "name": "altera-system-frontend",
   "version": "1.0.0",
-  "type": "module",
-  "description": "Microfrontend setup for Altera System with Vite",
   "private": true,
   "workspaces": [
-    "shell",
-    "apps/*"
+    "web/shell",
+    "web/apps/*",
+    "web/shared"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=shell\" \"npm run dev --workspace=apps/teacher-web-app\" \"npm run dev --workspace=apps/admin-web-app\" \"npm run dev --workspace=apps/parent-web-app\"",
+    "dev": "npm run dev --workspace=web",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:mobile": "cd mobile/parent-mobile-app && npm start",
     "build": "npm run build --workspaces",
-    "build:shell": "npm run build --workspace=shell",
-    "build:teacher": "npm run build --workspace=apps/teacher-web-app",
-    "build:admin": "npm run build --workspace=apps/admin-web-app",
-    "build:parent": "npm run build --workspace=apps/parent-web-app",
-    "preview": "npm run preview --workspace=shell",
-    "clean": "rm -rf node_modules && npm run clean --workspaces",
-    "install:all": "npm install"
+    "build:web": "npm run build --workspace=web",
+    "install:all": "npm install && cd mobile/parent-mobile-app && npm install",
+    "clean": "npm run clean --workspaces"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
