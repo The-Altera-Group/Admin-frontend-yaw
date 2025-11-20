@@ -1,0 +1,14 @@
+{
+  "name": "altera-system-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=shell\" \"npm run dev --workspace=apps/admin-web-app\" \"npm run dev --workspace=apps/teacher-web-app\"",
+    "build": "npm run build --workspaces",
+    "preview": "npm run preview --workspace=shell",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

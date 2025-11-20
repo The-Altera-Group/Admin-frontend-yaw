@@ -1,0 +1,26 @@
+{
+  "name": "altera-system-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "web/shell",
+    "web/apps/*",
+    "web/shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:mobile": "cd mobile/parent-mobile-app && npm start",
+    "build": "npm run build --workspaces",
+    "build:web": "npm run build --workspace=web",
+    "install:all": "npm install && cd mobile/parent-mobile-app && npm install",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
