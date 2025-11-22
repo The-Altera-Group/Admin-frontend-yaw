@@ -1,0 +1,173 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: altera
+      POSTGRES_PASSWORD: altera123
+      POSTGRES_DB: altera_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U altera -d altera_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Services
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  course-service:
+    build:
+      context: ./backend/course-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  student-service:
+    build:
+      context: ./backend/student-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  teacher-service:
+    build:
+      context: ./backend/teacher-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  attendance-service:
+    build:
+      context: ./backend/attendance-service
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  grade-service:
+    build:
+      context: ./backend/grade-service
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/altera_db
+      SPRING_DATASOURCE_USERNAME: altera
+      SPRING_DATASOURCE_PASSWORD: altera123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Frontend Applications
+  admin-portal:
+    build:
+      context: ./frontend/admin-portal
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8080
+    depends_on:
+      - auth-service
+      - course-service
+      - student-service
+      - teacher-service
+      - attendance-service
+      - grade-service
+
+  teacher-portal:
+    build:
+      context: ./frontend/teacher-portal
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - auth-service
+      - course-service
+      - student-service
+      - teacher-service
+      - attendance-service
+      - grade-service
+
+  # Parent App (React Native Web)
+  parent-app:
+    build:
+      context: ./frontend/parent-app
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8080
+    depends_on:
+      - auth-service
+      - student-service
+      - attendance-service
+      - grade-service
+
+  # API Gateway (Optional - Add if using Spring Cloud Gateway)
+  # api-gateway:
+  #   build:
+  #     context: ./backend/api-gateway
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8765:8765"
+  #   depends_on:
+  #     - auth-service
+  #     - course-service
+  #     - student-service
+  #     - teacher-service
+  #     - attendance-service
+  #     - grade-service
+
+volumes:
+  postgres_data:
