@@ -1,6 +1,7 @@
 {
   "name": "altera-system-frontend",
   "version": "1.0.0",
+  "description": "Altera System Frontend - Web and Mobile Applications",
   "private": true,
   "workspaces": [
     "web/shell",
@@ -8,13 +9,26 @@
     "web/shared"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=web",
+    "dev": "npm run dev:web",
     "dev:web": "npm run dev --workspace=web",
-    "dev:mobile": "cd mobile/parent-mobile-app && npm start",
-    "build": "npm run build --workspaces",
+    "dev:mobile": "cd mobile/parent && npm start",
+    "dev:all": "concurrently \"npm run dev:web\" \"npm run dev:mobile\"",
+    
+    "build": "npm run build:web",
     "build:web": "npm run build --workspace=web",
-    "install:all": "npm install && cd mobile/parent-mobile-app && npm install",
-    "clean": "npm run clean --workspaces"
+    "build:mobile": "cd mobile/parent && npm run build:android",
+    "build:all": "concurrently \"npm run build:web\" \"npm run build:mobile\"",
+    
+    "install:all": "npm install && cd mobile/parent && npm install",
+    "install:web": "npm install",
+    "install:mobile": "cd mobile/parent && npm install",
+    
+    "clean": "npm run clean --workspaces && cd mobile/parent && npm run clean",
+    "clean:web": "npm run clean --workspaces",
+    "clean:mobile": "cd mobile/parent && npm run clean",
+    
+    "test:web": "npm run test --workspaces",
+    "test:mobile": "cd mobile/parent && npm test"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
