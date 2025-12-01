@@ -26,25 +26,8 @@
     </properties>
 
     <modules>
-        <module>auth-service</module>
+        <!-- Add other microservice modules here as they are created -->
         <module>student-service</module>
-        <module>teacher-service</module>
-        <module>parent-service</module>
-        <module>attendance-service</module>
-        <module>grade-service</module>
-        <module>assignment-service</module>
-        <module>subject-service</module>
-        <module>class-service</module>
-        <module>admission-service</module>
-        <module>fee-service</module>
-        <module>event-service</module>
-        <module>notification-service</module>
-        <module>messaging-service</module>
-        <module>document-service</module>
-        <module>leave-service</module>
-        <module>report-service</module>
-        <module>timetable-service</module>
-        <module>course-service</module>
     </modules>
 
     <dependencies>
