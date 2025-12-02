@@ -349,6 +349,8 @@ const Sidebar = ({ user, onLogout, isCollapsed, onToggleCollapse, isMobile }) =>
 
         /* Enhanced Collapse Button */
         .collapse-btn {
+          width: 32px;
+          height: 32px;
           border: 1px solid var(--border-color);
           background: var(--bg-primary);
           border-radius: var(--radius-md);

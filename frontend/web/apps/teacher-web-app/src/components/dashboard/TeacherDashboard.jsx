@@ -7,6 +7,10 @@ import RecentActivity from '../dashboard/RecentActivity';
 import UpcomingClasses from './Classes';
 import GradeDistribution from '../dashboard/GradeDistribution';
 import QuickActions from '../dashboard/QuickActions';
+import Notifications from '../dashboard/Notifications';
+import StudentPerformanceChart from '../dashboard/StudentPerformanceChart';
+import UpcomingSchedule from '../dashboard/UpcomingSchedule';
+import TaskTracker from '../dashboard/TaskTracker';
 import { RefreshCw, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react';
 
 // Custom hook for performance tracking
@@ -192,29 +196,39 @@ const TeacherDashboard = () => {
         </div>
 
         {/* Stats Overview */}
-        <StatsCards 
-          stats={stats} 
-          loading={loading} 
+        <StatsCards
+          stats={stats}
+          loading={loading}
         />
-        
-        {/* Main Dashboard Grid */}
-        <div className="dashboard-grid">
-          <div className="dashboard-column primary">
-            <UpcomingClasses 
-              classes={upcomingClasses} 
-              loading={loading} 
+
+        {/* Main Dashboard Grid - 3 Column Layout */}
+        <div className="dashboard-grid-modern">
+          {/* Left Column - Main Content */}
+          <div className="dashboard-column main-column">
+            <StudentPerformanceChart loading={loading} />
+            <UpcomingClasses
+              classes={upcomingClasses}
+              loading={loading}
             />
-            <RecentActivity 
-              activities={recentActivity} 
-              loading={loading} 
+            <GradeDistribution
+              data={gradeDistribution}
+              loading={loading}
             />
           </div>
-          
-          <div className="dashboard-column secondary">
-            <GradeDistribution 
-              data={gradeDistribution} 
-              loading={loading} 
+
+          {/* Middle Column - Activity & Tasks */}
+          <div className="dashboard-column middle-column">
+            <TaskTracker loading={loading} />
+            <RecentActivity
+              activities={recentActivity}
+              loading={loading}
             />
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="dashboard-column sidebar-column">
+            <Notifications loading={loading} />
+            <UpcomingSchedule loading={loading} />
             <QuickActions />
           </div>
         </div>
@@ -335,17 +349,29 @@ const TeacherDashboard = () => {
           border-color: var(--primary-green);
         }
 
-        .dashboard-grid {
+        .dashboard-grid-modern {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: var(--space-xl);
-          margin-bottom: var(--space-xl);
+          grid-template-columns: 2fr 1.5fr 1.25fr;
+          gap: 1.5rem;
+          margin-bottom: 2rem;
         }
 
         .dashboard-column {
           display: flex;
           flex-direction: column;
-          gap: var(--space-lg);
+          gap: 1.5rem;
+        }
+
+        .main-column {
+          min-width: 0;
+        }
+
+        .middle-column {
+          min-width: 0;
+        }
+
+        .sidebar-column {
+          min-width: 0;
         }
 
         .error-state {
@@ -477,17 +503,40 @@ const TeacherDashboard = () => {
         }
 
         /* Mobile Responsiveness */
+        @media (max-width: 1400px) {
+          .dashboard-grid-modern {
+            grid-template-columns: 1.5fr 1fr 1fr;
+            gap: 1.25rem;
+          }
+        }
+
         @media (max-width: 1024px) {
-          .dashboard-grid {
-            grid-template-columns: 1fr;
-            gap: var(--space-lg);
+          .dashboard-grid-modern {
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+          }
+
+          .sidebar-column {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
           }
         }
 
         @media (max-width: 768px) {
+          .dashboard-grid-modern {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+
+          .sidebar-column {
+            grid-template-columns: 1fr;
+          }
+
           .dashboard-summary {
             flex-direction: column;
-            gap: var(--space-lg);
+            gap: 1rem;
             align-items: stretch;
           }
 
@@ -500,19 +549,19 @@ const TeacherDashboard = () => {
           }
 
           .footer-stats {
-            gap: var(--space-lg);
+            gap: 1rem;
           }
         }
 
         @media (max-width: 480px) {
           .summary-cards {
             flex-direction: column;
-            gap: var(--space-sm);
+            gap: 0.5rem;
           }
 
           .footer-stats {
             flex-direction: column;
-            gap: var(--space-sm);
+            gap: 0.5rem;
           }
         }
 
