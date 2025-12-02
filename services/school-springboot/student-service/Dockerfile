@@ -22,5 +22,3 @@ RUN chmod +x ./entrypoint.sh
 # Ensure the Spring Boot app uses the same port we expose and map on the host
 ENV SERVER_PORT=8083
 
-EXPOSE 8083
-ENTRYPOINT ["./entrypoint.sh"]
