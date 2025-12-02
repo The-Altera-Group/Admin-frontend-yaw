@@ -2,9 +2,9 @@ spring:
   application:
     name: student-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:oais-student-service}}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:NewPost}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:167.172.176.8}:${DB_PORT:5432}/student_db}
+    username: ${SPRING_DATASOURCE_USERNAME:student_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:Std2025!sec}
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
