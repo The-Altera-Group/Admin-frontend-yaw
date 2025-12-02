@@ -8,9 +8,9 @@ spring:
     name: teacher-service
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/teacher-service
-    username: postgres
-    password: NewPost
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:167.172.176.8}:${DB_PORT:5432}/teacher_db}
+    username: ${SPRING_DATASOURCE_USERNAME:teacher_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:Tch2025!sec}
     driver-class-name: org.postgresql.Driver
     
   jpa:
