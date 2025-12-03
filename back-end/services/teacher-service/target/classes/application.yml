@@ -1,0 +1,100 @@
+server:
+  port: 8085
+  servlet:
+    context-path: /api/teacher-service
+
+spring:
+  application:
+    name: teacher-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/teacher-service
+    username: postgres
+    password: NewPost
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME:michaelselby200@gmail.com}
+    password: ${EMAIL_PASSWORD:bhevhowmavtwravh}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    
+  thymeleaf:
+    cache: false
+    mode: HTML
+    encoding: UTF-8
+    prefix: classpath:/templates/
+    suffix: .html
+
+# Application Configuration
+app:
+  # Frontend URL for email links
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+  
+  # JWT Configuration
+  jwt:
+    secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production}
+    expiration: 86400000 # 24 hours in milliseconds
+    refresh-expiration: 604800000 # 7 days in milliseconds
+    
+  email:
+    from: no-reply@altera.school
+    support-email: support@altera.school
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.altera.teacherservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Actuator for health checks and metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    doc-expansion: none
+    filter: true
+    tryItOutEnabled: true
+    persistAuthorization: true
+    display-request-duration: true
+    show-extensions: true
+  show-actuator: true

@@ -1,34 +1,72 @@
 server:
-  port: 8083
+  port: 8085
   servlet:
-    context-path: /api/teachers
+    context-path: /api/teacher-service
 
 spring:
   application:
     name: teacher-service
+  
   datasource:
-    url: jdbc:postgresql://localhost:5432/teacherdb
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:167.172.176.8}:${DB_PORT:5432}/teacher_db}
+    username: ${SPRING_DATASOURCE_USERNAME:teacher_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:Tch2025!sec}
     driver-class-name: org.postgresql.Driver
+    
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
-        format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME:michaelselby200@gmail.com}
+    password: ${EMAIL_PASSWORD:bhevhowmavtwravh}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    
+  thymeleaf:
+    cache: false
+    mode: HTML
+    encoding: UTF-8
+    prefix: classpath:/templates/
+    suffix: .html
 
-# Eureka Client Configuration
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
+# Application Configuration
+app:
+  # Frontend URL for email links
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+  
+  # JWT Configuration
+  jwt:
+    secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production}
+    expiration: 86400000 # 24 hours in milliseconds
+    refresh-expiration: 604800000 # 7 days in milliseconds
+    
+  email:
+    from: no-reply@altera.school
+    support-email: support@altera.school
 
-# Actuator Endpoints
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.altera.teacherservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Actuator for health checks and metrics
 management:
   endpoints:
     web:
@@ -37,20 +75,26 @@ management:
   endpoint:
     health:
       show-details: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
-# OpenAPI Configuration
+# OpenAPI/Swagger configuration
 springdoc:
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
+    enabled: true
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
-
-# Feign Client Configuration
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 5000
-        loggerLevel: basic
+    tagsSorter: alpha
+    doc-expansion: none
+    filter: true
+    tryItOutEnabled: true
+    persistAuthorization: true
+    display-request-duration: true
+    show-extensions: true
+  show-actuator: true

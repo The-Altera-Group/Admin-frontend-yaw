@@ -1,0 +1,5 @@
+#Tue Dec 02 17:12:58 GMT 2025
+configuration*?=F743E9DAEB05D227839F1E316820DB59450C2C45
+module-resource*?\:checkstyle-xpath-suppressions.xml=4884D4A1CCEBB62BDEC024E87F16D494E0064D1B
+module-resource*?\:checkstyle-suppressions.xml=C12D82D6888D62CFF8345E0B7F97CFAF4B4CD088
+C\:\\Users\\Michael\\Documents\\Altera-System\\services\\school-springboot\\teacher-service\\src\\main\\java\\com\\altera\\teacherservice\\entity\\UserRole.java=1764660084017

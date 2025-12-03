@@ -1,47 +1,51 @@
-server:
-  port: 8082
-  servlet:
-    context-path: /api/students
-
 spring:
   application:
     name: student-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/studentdb
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:167.172.176.8}:${DB_PORT:5432}/student_db}
+    username: ${SPRING_DATASOURCE_USERNAME:student_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:Std2025!sec}
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
 
-# Eureka Client Configuration
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
-# Actuator Endpoints
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-# OpenAPI Configuration
+# Swagger UI / OpenAPI Configuration
 springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+    tagsSorter: alpha
+    doc-expansion: none
+    filter: true
+    display-request-duration: true
+    persist-authorization: true
+    use-root-path: true
+
+server:
+  port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# Eureka client - default to cluster service name when running in Docker/compose
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://eureka-server:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
