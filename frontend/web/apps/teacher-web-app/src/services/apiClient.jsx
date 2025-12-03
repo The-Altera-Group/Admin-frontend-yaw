@@ -1,9 +1,9 @@
-// src/services/apiClient.js
 import axios from 'axios';
+import {TEACHER_APP_CONFIG} from '../../config.jsx';
 
 // Configuration
 const API_CONFIG = {
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api',
+  baseURL: TEACHER_APP_CONFIG.API.BASE_URL,
   timeout: 30000, // 30 seconds
   retries: 3,
   retryDelay: 1000 // 1 second
@@ -19,7 +19,7 @@ export const apiClient = axios.create({
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY'
   },
-  withCredentials: false, // We're using Bearer tokens
+  withCredentials: false,
   xsrfCookieName: 'XSRF-TOKEN',
   xsrfHeaderName: 'X-XSRF-TOKEN'
 });

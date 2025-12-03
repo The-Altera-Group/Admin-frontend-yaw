@@ -2,8 +2,7 @@
 export const TEACHER_APP_CONFIG = {
     // API SETTINGS
     API: {
-        BASE_URL: import.meta.env.VITE_TEACHER_API_BASE_URL,
-        TIMEOUT: parseInt(import.meta.env.VITE_TEACHER_API_TIMEOUT) || 10000,
+        BASE_URL: import.meta.env.VITE_API_BASE_URL,
     },
     // AUTHENTICATION SETTINGS
     AUTH: {
@@ -15,7 +14,7 @@ export const TEACHER_APP_CONFIG = {
     },
     // DASHBOARD SETTINGS
     DASHBOARD: {
-        FETCH_DASHBOARD_DATA: import.meta.env.VITE_TEACHER_FETCH_DASHBOARD_DATA,
+        FETCH_DASHBOARD_DATA: import.meta.env.VITE_TEACHER_DASHBOARD,
         UPDATE_PROFILE: import.meta.env.VITE_TEACHER_UPDATE_PROFILE,
     },
     // GENERAL SETTINGS

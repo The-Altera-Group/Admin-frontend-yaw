@@ -137,36 +137,34 @@
 /* ===== AUTH FORM STYLES ===== */
 .auth-form-container {
   width: 100%;
-  animation: slideUp 0.6s ease-out;
+  animation: slideUp 0.4s ease-out;
 }
 
 .auth-header {
-  text-align: center;
-  margin-bottom: var(--space-xl);
+  text-align: left;
+  margin-bottom: var(--space-2xl);
 }
 
 .welcome-content,
 .header-content {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .auth-title {
   text-align: left;
-  font-size: var(--text-3xl);
-  font-weight: 800;
+  font-size: 2.5rem;
+  font-weight: 700;
   font-family: var(--font-family-display);
   color: var(--gray-900);
-  margin-bottom: var(--space-md);
-  background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-600) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin-bottom: var(--space-sm);
+  letter-spacing: -0.02em;
 }
 
 .auth-subtitle {
   font-size: var(--text-base);
-  color: var(--gray-600);
-  line-height: 1.6;
+  color: var(--gray-500);
+  line-height: 1.5;
+  font-weight: 400;
 }
 
 /* ===== FORM STYLES ===== */
@@ -211,33 +209,41 @@
 
 .form-input {
   width: 100%;
-  padding: var(--space-md) var(--space-md);
-  border: 2px solid var(--border-color, var(--gray-300));
-  border-radius: var(--radius-lg);
-  font-size: var(--text-base);
+  padding: 0.875rem 1rem;
+  border: 1.5px solid var(--border-color, var(--gray-300));
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
   font-family: inherit;
   background-color: var(--white);
-  transition: var(--transition-medium);
+  transition: all 0.2s ease;
   outline: none;
+  font-weight: 400;
 }
 
 .form-input.with-icon {
-  padding-left: var(--space-xl);
+  padding-left: 3rem;
 }
 
 .form-input::placeholder {
   color: var(--gray-400);
+  font-weight: 400;
+}
+
+.form-input:hover:not(:disabled) {
+  border-color: var(--gray-400);
 }
 
 .form-input:focus {
   border-color: var(--primary-green);
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.08);
+  background-color: var(--white);
 }
 
 .form-input:disabled {
   background-color: var(--gray-50);
   color: var(--gray-500);
   cursor: not-allowed;
+  border-color: var(--gray-200);
 }
 
 /* Password input styles */
@@ -446,14 +452,14 @@
 /* ===== BUTTONS ===== */
 .auth-button {
   width: 100%;
-  padding: var(--space-md) var(--space-lg);
+  padding: 0.875rem 1.5rem;
   border: none;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-base);
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: var(--transition-medium);
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -462,27 +468,28 @@
   gap: var(--space-xs);
   text-decoration: none;
   outline: none;
-  min-height: 52px;
+  min-height: 48px;
 }
 
 .auth-button.primary {
-  background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-dark) 100%);
+  background: var(--primary-green);
   color: white;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .auth-button.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-green-dark) 0%, #065f46 100%);
-  box-shadow: var(--shadow-lg);
+  background: var(--primary-green-dark);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
   transform: translateY(-1px);
 }
 
-.auth-button.primary:active {
+.auth-button.primary:active:not(:disabled) {
   transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .auth-button.primary.ready {
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2), var(--shadow-lg);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1), 0 4px 12px rgba(5, 150, 105, 0.15);
 }
 
 .auth-button.secondary {
@@ -551,53 +558,67 @@
 /* ===== SUCCESS/ERROR STATES ===== */
 .auth-error,
 .auth-error-message {
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  border: 1px solid var(--error);
-  border-left: 4px solid var(--error);
-  border-radius: var(--radius-lg);
-  padding: var(--space-md);
-  margin-bottom: var(--space-lg);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 3px solid #ef4444;
+  border-radius: 0.625rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .auth-success-message {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border: 1px solid var(--success);
-  border-left: 4px solid var(--success);
-  border-radius: var(--radius-lg);
-  padding: var(--space-md);
-  margin-bottom: var(--space-lg);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 3px solid #22c55e;
+  border-radius: 0.625rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .error-content,
 .success-content {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
+  align-items: flex-start;
+  gap: 0.75rem;
 }
 
 .error-icon,
 .success-icon {
   font-size: var(--text-lg);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 
-.error-text strong,
-.success-text strong {
-  color: var(--error);
+.error-text {
+  flex: 1;
+}
+
+.error-text strong {
+  color: #dc2626;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--space-xs);
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .success-text strong {
-  color: var(--success);
+  color: #16a34a;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .error-text p,
 .success-text p {
-  font-size: var(--text-sm);
+  font-size: 0.875rem;
   line-height: 1.5;
+  color: #991b1b;
+  margin: 0;
+}
+
+.success-text p {
+  color: #15803d;
 }
 
 /* ===== SUCCESS STATE ===== */
@@ -824,7 +845,7 @@
 @keyframes slideUp {
   0% {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   100% {
     opacity: 1;
@@ -844,7 +865,7 @@
 @keyframes slideIn {
   0% {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-5px);
   }
   100% {
     opacity: 1;
@@ -853,11 +874,11 @@
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .animate-slide-in {
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn 0.2s ease-out;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */

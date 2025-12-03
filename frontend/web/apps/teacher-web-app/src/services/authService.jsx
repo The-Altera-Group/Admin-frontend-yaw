@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { TEACHER_APP_CONFIG } from '../../config';
 import { jwtDecode } from 'jwt-decode';
+import secureStorage from '../utils/secureStorage';
 
 // Secure storage keys with app prefix
 const ACCESS_TOKEN_KEY = 'gfa_access_token';
@@ -8,11 +9,13 @@ const REFRESH_TOKEN_KEY = 'gfa_refresh_token';
 const USER_DATA_KEY = 'gfa_user_data';
 const RATE_LIMIT_KEY = 'gfa_rate_limit';
 const SESSION_ID_KEY = 'gfa_session_id';
+const REMEMBER_ME_KEY = 'gfa_remember_me';
 
 class AuthService {
   constructor() {
     this.initializeService();
     this.sessionId = this.generateSessionId();
+    this.useLocalStorage = this.getRememberMePreference();
   }
 
   initializeService() {
@@ -85,18 +88,22 @@ class AuthService {
 
   async login(credentials) {
     try {
+      // Set Remember Me preference before login
+      if (credentials.rememberMe !== undefined) {
+        this.setRememberMePreference(credentials.rememberMe);
+      }
+
       const response = await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.LOGIN}`, {
-        ...credentials,
-        deviceInfo: this.getDeviceInfo(),
-        sessionId: this.sessionId
+        email: credentials.email,
+        password: credentials.password,
       });
-      
+
       const { user, accessToken, refreshToken } = response.data;
-      
+
       // Store tokens and user data securely
       this.storeTokens({ accessToken, refreshToken });
       this.storeUserData(user);
-      
+
       return response.data;
     } catch (error) {
       throw this.handleApiError(error);
@@ -107,9 +114,6 @@ class AuthService {
     try {
       const response = await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.FORGOT_PASSWORD}`, { 
         email,
-        userType: 'teacher',
-        deviceInfo: this.getDeviceInfo(),
-        sessionId: this.sessionId
       });
       return response.data;
     } catch (error) {
@@ -121,10 +125,7 @@ class AuthService {
     try {
       const response = await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.RESET_PASSWORD}`, {
         token,
-        newPassword,
-        userType: 'teacher',
-        deviceInfo: this.getDeviceInfo(),
-        sessionId: this.sessionId
+        newPassword
       });
       return response.data;
     } catch (error) {
@@ -175,9 +176,7 @@ class AuthService {
 
     try {
       const response = await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.REFRESH_TOKEN}`, {
-        refreshToken,
-        deviceInfo: this.getDeviceInfo(),
-        sessionId: this.sessionId
+        refreshToken
       });
       
       const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -201,9 +200,7 @@ class AuthService {
     if (refreshToken) {
       try {
         await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.LOGOUT}`, { 
-          refreshToken,
-          deviceInfo: this.getDeviceInfo(),
-          sessionId: this.sessionId
+          refreshToken
         });
       } catch (error) {
         console.warn('Logout API call failed:', error);
@@ -218,8 +215,7 @@ class AuthService {
     try {
       const response = await apiClient.post(`${TEACHER_APP_CONFIG.AUTH.CHANGE_PASSWORD}`, {
         currentPassword,
-        newPassword,
-        sessionId: this.sessionId
+        newPassword
       });
       return response.data;
     } catch (error) {
@@ -239,47 +235,61 @@ class AuthService {
     }
   }
 
-  // Secure storage management
+  // Remember Me functionality using secure storage
+  setRememberMePreference(rememberMe) {
+    this.useLocalStorage = rememberMe;
+    // Store preference (unencrypted as it's just a boolean flag)
+    secureStorage.setItem(REMEMBER_ME_KEY, rememberMe, true); // Always in localStorage
+  }
+
+  getRememberMePreference() {
+    const preference = secureStorage.getItem(REMEMBER_ME_KEY);
+    return preference !== null ? preference : false;
+  }
+
+  // Secure encrypted storage with expiration support
   setSecureStorage(key, value) {
     try {
-      if (this.isLocalStorageAvailable()) {
-        localStorage.setItem(key, value);
-      }
+      const persistent = this.useLocalStorage;
+      // For tokens, set expiration: 7 days for Remember Me, 24 hours for session
+      const expirationMinutes = persistent ? (7 * 24 * 60) : (24 * 60);
+
+      secureStorage.setItem(key, value, persistent, expirationMinutes);
     } catch (error) {
-      console.warn('LocalStorage not available:', error);
+      console.error('SecureStorage.setItem error:', error);
     }
   }
 
   getSecureStorage(key) {
     try {
-      if (this.isLocalStorageAvailable()) {
-        return localStorage.getItem(key);
-      }
+      return secureStorage.getItem(key);
     } catch (error) {
-      console.warn('LocalStorage not available:', error);
+      console.error('SecureStorage.getItem error:', error);
+      return null;
     }
-    return null;
   }
 
   removeSecureStorage(key) {
     try {
-      if (this.isLocalStorageAvailable()) {
-        localStorage.removeItem(key);
-      }
+      secureStorage.removeItem(key);
     } catch (error) {
-      console.warn('LocalStorage not available:', error);
+      console.error('SecureStorage.removeItem error:', error);
     }
   }
 
-  isLocalStorageAvailable() {
+  isStorageAvailable(storage) {
     try {
       const test = 'test';
-      localStorage.setItem(test, test);
-      localStorage.removeItem(test);
+      storage.setItem(test, test);
+      storage.removeItem(test);
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  isLocalStorageAvailable() {
+    return this.isStorageAvailable(localStorage);
   }
 
   // Token and storage management

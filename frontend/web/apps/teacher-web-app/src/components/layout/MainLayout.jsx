@@ -34,7 +34,7 @@ const MainLayout = ({
     setIsSidebarCollapsed(collapsed);
   };
 
-  const sidebarWidth = isSidebarCollapsed && !isMobile ? 80 : 280;
+  const sidebarWidth = isSidebarCollapsed && !isMobile ? 100 : 280;
   const mainContentMargin = isMobile ? 0 : sidebarWidth;
 
   return (
