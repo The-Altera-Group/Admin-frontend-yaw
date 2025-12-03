@@ -5,11 +5,13 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: postgres
+    env_file:
+      - auth-service/.env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: studentdb,teacherdb,authdb
-      POSTGRES_DB: studentdb  # Default database
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES}
+      POSTGRES_DB: ${POSTGRES_DB}  # Default database
     entrypoint: ["/bin/sh", "-c"]
     command: >-
       set -e
@@ -42,6 +44,37 @@ services:
     depends_on:
       - postgres
 
+  # Auth Service
+  auth-service:
+    build:
+      context: auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8080:8080"
+    env_file:
+      - auth-service/.env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-authdb}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - DB_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-authdb}
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=${EUREKA_URL}
+    depends_on:
+      - postgres
+      - service-registry
+    networks:
+      - altera-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # API Gateway
   api-gateway:
     build:
@@ -57,25 +90,6 @@ services:
     networks:
       - altera-network
 
-  # Auth Service
-  auth-service:
-    build:
-      context: auth-service
-      dockerfile: Dockerfile
-    container_name: auth-service
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/authdb
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
-    ports:
-      - "8081:8081"
-    depends_on:
-      - service-registry
-      - postgres
-    networks:
-      - altera-network
 
   # Student Service
   student-service:
@@ -83,12 +97,14 @@ services:
       context: student-service
       dockerfile: student-service/Dockerfile
     container_name: student-service
+    env_file:
+      - auth-service/.env
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/studentdb
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+      - SPRING_DATASOURCE_USERNAME=${postgres}
+      - SPRING_DATASOURCE_PASSWORD=${Sammy@900sam}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_URL}
     ports:
       - "8082:8082"
     depends_on:
