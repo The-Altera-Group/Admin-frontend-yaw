@@ -24,9 +24,10 @@ Altera-System/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 18+
 - npm 9+
 - For mobile: React Native development environment
+- (Optional) Docker & Docker Compose for containerized deployment
 
 ### Installation
 
@@ -50,6 +51,28 @@ npm run dev --workspace=web/shell
 npm run dev --workspace=web/apps/teacher-web-app
 npm run dev --workspace=web/apps/admin-web-app
 
+### 🐳 Docker Setup
+
+Run all applications using Docker:
+
+```bash
+# Build and start all applications
+docker-compose up --build
+
+# Start in detached mode
+docker-compose up -d
+
+# Stop all applications
+docker-compose down
+```
+
+**Access Points:**
+- Shell: http://localhost:5000
+- Teacher App: http://localhost:5001
+- Admin App: http://localhost:5002
+- Mobile App (Expo): http://localhost:19000
+
+For detailed Docker instructions, see [DOCKER.md](DOCKER.md)
 
 📁 Project Structure
 
@@ -182,7 +205,7 @@ npm run dev --workspace=apps/admin-web-app
 ## Access Applications
 Main Application: http://localhost:5000
 
-Teacher App: http://localhost:5001 (direct access)
+Teacher App: http://localhost:5173 (direct access)
 
 Admin App: http://localhost:5002 (direct access)
 

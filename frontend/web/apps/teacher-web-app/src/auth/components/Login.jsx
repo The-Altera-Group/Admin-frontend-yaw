@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Eye, EyeOff, CheckCircle, Mail, Lock, TriangleAlert } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, TriangleAlert } from 'lucide-react';
 
 const LoginForm = ({ onToggleMode }) => {
   const { loginWithRedirect, loading, error, clearError } = useAuth();
@@ -84,7 +84,6 @@ const LoginForm = ({ onToggleMode }) => {
   const getFieldStatus = (field) => {
     if (focusedField === field) return 'focused';
     if (validationErrors[field]) return 'error';
-    if (touched[field] && formData[field] && !validationErrors[field]) return 'success';
     return 'default';
   };
 
@@ -92,14 +91,15 @@ const LoginForm = ({ onToggleMode }) => {
     <div className="auth-form-container">
       <div className="auth-header">
         <div className="welcome-content">
-          <h1 className="auth-title">Sign in</h1>
+          <h1 className="auth-title">Welcome back</h1>
+          <p className="auth-subtitle">Sign in to your account to continue</p>
         </div>
       </div>
 
       {error && (
         <div className="auth-error animate-slide-in" role="alert">
           <div className="error-content">
-            <TriangleAlert size={20} color='red' />
+            <TriangleAlert size={18} color='#ef4444' />
             <div className="error-text">
               <strong>Authentication Failed</strong>
               <p>{error}</p>
@@ -132,9 +132,6 @@ const LoginForm = ({ onToggleMode }) => {
               required
               style={{ color: '#000000' }}
             />
-            {getFieldStatus('email') === 'success' && (
-              <CheckCircle className="field-icon success" size={20} />
-            )}
           </div>
           {validationErrors.email && (
             <div className="field-error animate-slide-in" role="alert">
@@ -176,9 +173,6 @@ const LoginForm = ({ onToggleMode }) => {
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
-            {getFieldStatus('password') === 'success' && (
-              <CheckCircle className="field-icon success" size={20} />
-            )}
           </div>
           {validationErrors.password && (
             <div className="field-error animate-slide-in" role="alert">

@@ -599,26 +599,34 @@ const TopBar = ({ user, isMobile }) => {
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
           .top-bar {
-            height: 72px;
+            height: auto;
+            min-height: 64px;
           }
 
           .top-bar-content {
-            padding: 0 var(--space-md);
-            gap: var(--space-md);
+            padding: var(--space-md);
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+          }
+
+          .top-bar-left {
+            flex: 1;
+            min-width: 0;
           }
 
           .greeting-text {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
           }
 
           .date-time-info {
             gap: 0.5rem;
+            flex-wrap: wrap;
           }
 
           .date-info,
           .time-info {
-            font-size: var(--text-xs);
-            padding: 0.2rem 0.4rem;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
           }
 
           .search-container {
@@ -643,39 +651,52 @@ const TopBar = ({ user, isMobile }) => {
 
           .notification-dropdown,
           .profile-dropdown {
-            width: 280px;
-            right: -1rem;
+            width: 90vw;
+            max-width: 320px;
+            right: 0;
           }
 
           .action-btn {
-            padding: 0.4rem;
+            padding: 0.5rem;
+          }
+
+          .top-bar-actions {
+            flex-shrink: 0;
           }
         }
 
         /* Small mobile devices */
         @media (max-width: 480px) {
-          .date-info span:first-child,
-          .time-info span:first-child {
-            display: none;
+          .top-bar-content {
+            padding: 0.75rem;
           }
 
           .greeting-text {
-            font-size: 1.1rem;
+            font-size: 1rem;
           }
 
           .top-bar-actions {
-            gap: 0.25rem;
+            gap: 0.375rem;
           }
 
           .date-time-info {
-            flex-direction: column;
-            gap: 0.25rem;
-            align-items: flex-start;
+            gap: 0.375rem;
           }
 
           .date-info,
           .time-info {
-            font-size: 0.7rem;
+            font-size: 0.6875rem;
+            padding: 0.2rem 0.375rem;
+          }
+
+          .action-btn {
+            padding: 0.375rem;
+          }
+
+          .notification-badge {
+            width: 16px;
+            height: 16px;
+            font-size: 0.625rem;
           }
         }
       `}</style>
