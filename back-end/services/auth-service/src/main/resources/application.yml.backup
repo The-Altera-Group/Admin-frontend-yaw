@@ -7,9 +7,9 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/authdb
+    username: postgres
+    password: Sammy@900sam
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -25,14 +25,17 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: Sameggyir@gmail.com
-    password: qgtw kkkc loha qjlf
+    username: ${EMAIL_USERNAME:your-email@gmail.com}
+    password: ${EMAIL_PASSWORD:your-app-password}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+        transport:
+          protocol: smtp
+          debug: true
 
 app:
   jwt:
