@@ -5,7 +5,7 @@
 
     <parent>
         <groupId>com.altera</groupId>
-        <artifactId>school-management-system</artifactId>
+        <artifactId>altera-services</artifactId>
         <version>1.0.0</version>
         <relativePath>..</relativePath>
     </parent>
