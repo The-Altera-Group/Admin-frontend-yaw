@@ -5,7 +5,7 @@ Run in an elevated PowerShell session in Windows where Docker Desktop is install
 Usage: .\run-docker.ps1
 #>
 param(
-    [string]$ServicePath = "services/school-springboot/student-service",
+    [string]$ServicePath = "back-end/services/student-service",
     [string]$ImageName = "altera/student-service:latest",
     [string]$ContainerName = "student-service",
     [int]$HostPort = 8083,
