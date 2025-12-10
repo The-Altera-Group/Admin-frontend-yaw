@@ -20,7 +20,9 @@ import {
   Clock,
   AlertCircle,
   Loader,
-  RefreshCw
+  RefreshCw,
+  CheckCircle,
+  Download
 } from 'lucide-react';
 
 const Messages = () => {
@@ -55,12 +57,192 @@ const Messages = () => {
     attachments: []
   });
 
+  // File upload state
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState({});
+
+  // Draft auto-save state
+  const [draftId, setDraftId] = useState(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [savedDraft, setSavedDraft] = useState(null);
+
+  // Rich text editor state
+  const [showFormatting, setShowFormatting] = useState(false);
+  const messageTextareaRef = React.useRef(null);
+
+  // File handling
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const handleRemoveFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async () => {
+    const uploadedAttachments = [];
+
+    for (const file of selectedFiles) {
+      try {
+        const result = await messageService.uploadAttachment(file, (progress) => {
+          setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+        });
+        uploadedAttachments.push(result);
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+        throw new Error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    return uploadedAttachments;
+  };
+
+  // Download attachment
+  const handleDownloadAttachment = async (messageId, attachmentId, filename) => {
+    try {
+      const blob = await messageService.downloadAttachment(messageId, attachmentId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download attachment: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  // Draft management
+  const saveDraft = async () => {
+    // Don't save empty drafts
+    if (!composeForm.to && !composeForm.subject && !composeForm.message) {
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const draftData = {
+        ...composeForm,
+        files: selectedFiles.map(f => ({ name: f.name, size: f.size })),
+        savedAt: new Date().toISOString()
+      };
+
+      // Save to localStorage (can be changed to API call)
+      const currentDraftId = draftId || `draft_${Date.now()}`;
+      localStorage.setItem(`message_draft_${currentDraftId}`, JSON.stringify(draftData));
+
+      setDraftId(currentDraftId);
+      setLastSaved(new Date());
+
+      // Optional: Also save to backend
+      // await messageService.saveDraft(draftData);
+    } catch (err) {
+      console.error('Failed to save draft:', err);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const loadDraft = (loadedDraftId) => {
+    try {
+      const savedDraftData = localStorage.getItem(`message_draft_${loadedDraftId}`);
+      if (savedDraftData) {
+        const draft = JSON.parse(savedDraftData);
+        setComposeForm({
+          to: draft.to || '',
+          subject: draft.subject || '',
+          message: draft.message || '',
+          priority: draft.priority || 'normal',
+          attachments: draft.attachments || []
+        });
+        setDraftId(loadedDraftId);
+        setLastSaved(draft.savedAt ? new Date(draft.savedAt) : null);
+        setShowDraftPrompt(false);
+      }
+    } catch (err) {
+      console.error('Failed to load draft:', err);
+    }
+  };
+
+  const deleteDraft = (deleteDraftId) => {
+    try {
+      localStorage.removeItem(`message_draft_${deleteDraftId || draftId}`);
+      setDraftId(null);
+      setLastSaved(null);
+    } catch (err) {
+      console.error('Failed to delete draft:', err);
+    }
+  };
+
+  const getAllDrafts = () => {
+    const drafts = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('message_draft_')) {
+        try {
+          const draftData = JSON.parse(localStorage.getItem(key));
+          const id = key.replace('message_draft_', '');
+          drafts.push({ id, ...draftData });
+        } catch (err) {
+          console.error('Failed to parse draft:', err);
+        }
+      }
+    }
+    return drafts.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+  };
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    if (!showCompose) return;
+
+    const autoSaveInterval = setInterval(() => {
+      saveDraft();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [showCompose, composeForm, selectedFiles]);
+
+  // Check for existing draft on mount
+  useEffect(() => {
+    const drafts = getAllDrafts();
+    if (drafts.length > 0 && !showCompose) {
+      setSavedDraft(drafts[0]);
+      setShowDraftPrompt(true);
+    }
+  }, []);
+
   // CRUD handlers
   const handleSendMessage = async () => {
     try {
-      await messageService.send(composeForm);
+      // Upload files first if any
+      let attachments = [];
+      if (selectedFiles.length > 0) {
+        attachments = await uploadFiles();
+      }
+
+      // Send message with attachments
+      await messageService.send({
+        ...composeForm,
+        attachments
+      });
+
+      // Delete draft after sending
+      if (draftId) {
+        deleteDraft(draftId);
+      }
+
+      // Reset form
       setShowCompose(false);
       setComposeForm({ to: '', subject: '', message: '', priority: 'normal', attachments: [] });
+      setSelectedFiles([]);
+      setUploadProgress({});
+      setDraftId(null);
+      setLastSaved(null);
       fetchMessages();
     } catch (err) {
       alert('Failed to send message: ' + (err.message || 'Unknown error'));
@@ -100,9 +282,12 @@ const Messages = () => {
 
   // Folder configuration with dynamic badges
   const folders = useMemo(() => {
+    const draftCount = getAllDrafts().length;
+
     if (!messages || !Array.isArray(messages)) return [
       { id: 'inbox', name: 'Inbox', icon: Inbox, badge: 0 },
       { id: 'sent', name: 'Sent', icon: Send, badge: 0 },
+      { id: 'drafts', name: 'Drafts', icon: Mail, badge: draftCount },
       { id: 'starred', name: 'Starred', icon: Star, badge: 0 },
       { id: 'archive', name: 'Archive', icon: Archive, badge: 0 },
       { id: 'trash', name: 'Trash', icon: Trash2, badge: 0 }
@@ -111,6 +296,7 @@ const Messages = () => {
     return [
       { id: 'inbox', name: 'Inbox', icon: Inbox, badge: messages.filter(m => m.folder === 'inbox' && !m.isRead).length },
       { id: 'sent', name: 'Sent', icon: Send, badge: 0 },
+      { id: 'drafts', name: 'Drafts', icon: Mail, badge: draftCount },
       { id: 'starred', name: 'Starred', icon: Star, badge: messages.filter(m => m.isStarred).length },
       { id: 'archive', name: 'Archive', icon: Archive, badge: 0 },
       { id: 'trash', name: 'Trash', icon: Trash2, badge: 0 }
@@ -119,6 +305,25 @@ const Messages = () => {
 
   // Filter messages by folder
   const filteredMessages = useMemo(() => {
+    // Handle drafts folder separately
+    if (selectedFolder === 'drafts') {
+      return getAllDrafts().map(draft => ({
+        id: draft.id,
+        from: 'Draft',
+        fromEmail: '',
+        subject: draft.subject || '(No subject)',
+        preview: draft.message?.substring(0, 100) || '',
+        timestamp: draft.savedAt,
+        folder: 'drafts',
+        type: 'draft',
+        priority: draft.priority || 'normal',
+        isRead: true,
+        isStarred: false,
+        hasAttachment: false,
+        isDraft: true
+      }));
+    }
+
     if (!messages || !Array.isArray(messages)) return [];
     let filtered = messages;
 
@@ -149,6 +354,14 @@ const Messages = () => {
 
   // Handle message selection
   const handleSelectMessage = async (message) => {
+    // If it's a draft, load it for editing
+    if (message.isDraft) {
+      loadDraft(message.id);
+      setShowCompose(true);
+      setSelectedMessage(null);
+      return;
+    }
+
     setSelectedMessage(message);
     if (!message.isRead) {
       await handleMarkAsRead(message.id, true);
@@ -239,6 +452,46 @@ const Messages = () => {
               <RefreshCw size={20} />
               Retry
             </button>
+          </div>
+        )}
+
+        {/* Draft Resume Prompt */}
+        {showDraftPrompt && savedDraft && (
+          <div className="draft-prompt-overlay">
+            <div className="draft-prompt-modal">
+              <h3 className="draft-prompt-title">Resume Draft?</h3>
+              <p className="draft-prompt-text">
+                You have an unsaved draft from {new Date(savedDraft.savedAt).toLocaleString()}.
+              </p>
+              <div className="draft-prompt-preview">
+                <strong>To:</strong> {savedDraft.to || '(empty)'}
+                <br />
+                <strong>Subject:</strong> {savedDraft.subject || '(No subject)'}
+                <br />
+                <strong>Message:</strong> {savedDraft.message?.substring(0, 100) || '(empty)'}...
+              </div>
+              <div className="draft-prompt-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    deleteDraft(savedDraft.id);
+                    setShowDraftPrompt(false);
+                    setSavedDraft(null);
+                  }}
+                >
+                  Discard
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    loadDraft(savedDraft.id);
+                    setShowCompose(true);
+                  }}
+                >
+                  Resume Draft
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -384,10 +637,33 @@ const Messages = () => {
             {showCompose ? (
               <div className="compose-view">
                 <div className="compose-header">
-                  <h3 className="compose-title">
-                    {replyTo ? 'Reply' : 'New Message'}
-                  </h3>
-                  <button className="close-btn" onClick={() => setShowCompose(false)}>
+                  <div className="compose-header-left">
+                    <h3 className="compose-title">
+                      {replyTo ? 'Reply' : draftId ? 'Editing Draft' : 'New Message'}
+                    </h3>
+                    {lastSaved && (
+                      <span className="draft-saved-indicator">
+                        {isSavingDraft ? (
+                          <>
+                            <Clock size={12} className="saving-icon" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle size={12} />
+                            Saved {new Date(lastSaved).toLocaleTimeString()}
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <button className="close-btn" onClick={() => {
+                    setShowCompose(false);
+                    // Save draft when closing
+                    if (composeForm.to || composeForm.subject || composeForm.message) {
+                      saveDraft();
+                    }
+                  }}>
                     <X size={20} />
                   </button>
                 </div>
@@ -439,16 +715,73 @@ const Messages = () => {
                     />
                   </div>
 
+                  {/* File List */}
+                  {selectedFiles.length > 0 && (
+                    <div className="selected-files">
+                      <div className="selected-files-header">
+                        Attachments ({selectedFiles.length})
+                      </div>
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="file-item">
+                          <Paperclip size={14} />
+                          <span className="file-name">{file.name}</span>
+                          <span className="file-size">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                          {uploadProgress[file.name] !== undefined && (
+                            <div className="upload-progress">
+                              <div
+                                className="upload-progress-bar"
+                                style={{ width: `${uploadProgress[file.name]}%` }}
+                              />
+                            </div>
+                          )}
+                          <button
+                            className="remove-file-btn"
+                            onClick={() => handleRemoveFile(index)}
+                            type="button"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="compose-actions">
-                    <button className="attach-btn">
+                    <input
+                      type="file"
+                      id="file-upload"
+                      multiple
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      className="attach-btn"
+                      onClick={() => document.getElementById('file-upload').click()}
+                      type="button"
+                    >
                       <Paperclip size={18} />
                       Attach File
                     </button>
                     <div className="send-actions">
-                      <button className="cancel-btn" onClick={() => setShowCompose(false)}>
+                      <button
+                        className="cancel-btn"
+                        onClick={() => {
+                          setShowCompose(false);
+                          setSelectedFiles([]);
+                          setUploadProgress({});
+                        }}
+                        type="button"
+                      >
                         Cancel
                       </button>
-                      <button className="send-btn" onClick={handleSendMessage}>
+                      <button
+                        className="send-btn"
+                        onClick={handleSendMessage}
+                        disabled={!composeForm.to || !composeForm.subject || !composeForm.message}
+                        type="button"
+                      >
                         <Send size={18} />
                         Send Message
                       </button>
@@ -490,14 +823,14 @@ const Messages = () => {
                   <div className="detail-actions">
                     <button
                       className={`action-icon-btn ${selectedMessage.isStarred ? 'active' : ''}`}
-                      onClick={() => handleToggleStar(selectedMessage.id)}
+                      onClick={() => handleToggleStar(selectedMessage.id, selectedMessage.isStarred)}
                     >
                       <Star size={18} />
                     </button>
                     <button className="action-icon-btn" onClick={() => handleArchive(selectedMessage.id)}>
                       <Archive size={18} />
                     </button>
-                    <button className="action-icon-btn delete" onClick={() => handleDelete(selectedMessage.id)}>
+                    <button className="action-icon-btn delete" onClick={() => handleDeleteMessage(selectedMessage.id)}>
                       <Trash2 size={18} />
                     </button>
                   </div>
@@ -544,14 +877,27 @@ const Messages = () => {
                     ))}
                   </div>
 
-                  {selectedMessage.hasAttachment && (
+                  {selectedMessage.hasAttachment && selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
                     <div className="attachments-section">
                       <div className="attachments-header">Attachments</div>
-                      <div className="attachment-item">
-                        <Paperclip size={16} />
-                        <span>doctors_note.pdf</span>
-                        <span className="attachment-size">245 KB</span>
-                      </div>
+                      {selectedMessage.attachments.map((attachment, index) => (
+                        <button
+                          key={index}
+                          className="attachment-item clickable"
+                          onClick={() => handleDownloadAttachment(
+                            selectedMessage.id,
+                            attachment.id,
+                            attachment.filename
+                          )}
+                        >
+                          <Paperclip size={16} />
+                          <span className="attachment-filename">{attachment.filename || `Attachment ${index + 1}`}</span>
+                          <span className="attachment-size">
+                            {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                          </span>
+                          <Download size={14} className="download-icon" />
+                        </button>
+                      ))}
                     </div>
                   )}
 
@@ -1166,12 +1512,43 @@ const Messages = () => {
           border-radius: 0.5rem;
           font-size: 0.875rem;
           color: var(--text-primary);
+          width: 100%;
+          text-align: left;
+          border: 1px solid transparent;
+          transition: all 0.2s ease;
+          margin-bottom: var(--space-xs);
+        }
+
+        .attachment-item.clickable {
+          cursor: pointer;
+        }
+
+        .attachment-item.clickable:hover {
+          background: white;
+          border-color: var(--primary-green);
+        }
+
+        .attachment-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .attachment-filename {
+          flex: 1;
         }
 
         .attachment-size {
-          margin-left: auto;
           color: var(--text-tertiary);
           font-size: 0.75rem;
+        }
+
+        .download-icon {
+          color: var(--primary-green);
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+
+        .attachment-item.clickable:hover .download-icon {
+          opacity: 1;
         }
 
         .message-actions-bottom {
@@ -1348,8 +1725,215 @@ const Messages = () => {
           transition: all 0.2s ease;
         }
 
-        .send-btn:hover {
+        .send-btn:hover:not(:disabled) {
           background: var(--primary-green-hover);
+        }
+
+        .send-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        /* File Upload */
+        .selected-files {
+          padding: var(--space-md);
+          background: var(--bg-secondary);
+          border-radius: 0.5rem;
+          margin-top: var(--space-md);
+        }
+
+        .selected-files-header {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-sm);
+        }
+
+        .file-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-sm);
+          background: white;
+          border: 1px solid var(--border-color);
+          border-radius: 0.5rem;
+          margin-bottom: var(--space-xs);
+        }
+
+        .file-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .file-name {
+          flex: 1;
+          font-size: 0.875rem;
+          color: var(--text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .file-size {
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+        }
+
+        .upload-progress {
+          width: 100px;
+          height: 4px;
+          background: var(--bg-secondary);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+
+        .upload-progress-bar {
+          height: 100%;
+          background: var(--primary-green);
+          transition: width 0.3s ease;
+        }
+
+        .remove-file-btn {
+          padding: 0.25rem;
+          background: transparent;
+          border: none;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          border-radius: 0.25rem;
+          transition: all 0.2s ease;
+        }
+
+        .remove-file-btn:hover {
+          background: #fee2e2;
+          color: #ef4444;
+        }
+
+        /* Draft Features */
+        .draft-prompt-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .draft-prompt-modal {
+          background: white;
+          border-radius: 0.75rem;
+          padding: var(--space-xl);
+          max-width: 500px;
+          width: 90%;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .draft-prompt-title {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0 0 var(--space-md) 0;
+        }
+
+        .draft-prompt-text {
+          color: var(--text-secondary);
+          margin: 0 0 var(--space-md) 0;
+        }
+
+        .draft-prompt-preview {
+          background: var(--bg-secondary);
+          padding: var(--space-md);
+          border-radius: 0.5rem;
+          border-left: 3px solid var(--primary-green);
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-lg);
+          line-height: 1.6;
+        }
+
+        .draft-prompt-preview strong {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
+
+        .draft-prompt-actions {
+          display: flex;
+          gap: var(--space-sm);
+          justify-content: flex-end;
+        }
+
+        .draft-prompt-actions .btn-secondary,
+        .draft-prompt-actions .btn-primary {
+          padding: 0.75rem 1.5rem;
+          border-radius: 0.5rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+        }
+
+        .draft-prompt-actions .btn-secondary {
+          background: var(--bg-secondary);
+          color: var(--text-secondary);
+        }
+
+        .draft-prompt-actions .btn-secondary:hover {
+          background: #fee2e2;
+          color: #ef4444;
+        }
+
+        .draft-prompt-actions .btn-primary {
+          background: var(--primary-green);
+          color: white;
+        }
+
+        .draft-prompt-actions .btn-primary:hover {
+          background: var(--primary-green-dark);
+        }
+
+        .compose-header-left {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .draft-saved-indicator {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+          padding: 0.25rem 0.5rem;
+          background: var(--bg-secondary);
+          border-radius: 0.25rem;
+        }
+
+        .draft-saved-indicator svg {
+          color: var(--primary-green);
+        }
+
+        .saving-icon {
+          animation: spin 1s linear infinite;
         }
 
         .templates-section {

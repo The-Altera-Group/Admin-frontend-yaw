@@ -56,6 +56,10 @@ const Calendar = () => {
     reminder: '15min'
   });
 
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState({});
+  const [editMode, setEditMode] = useState(false);
+
   // Event types with colors
   const eventTypes = [
     { id: 'class', name: 'Class Session', color: '#3b82f6', icon: Users },
@@ -144,6 +148,49 @@ const Calendar = () => {
     return selectedDate && date.toDateString() === selectedDate.toDateString();
   };
 
+  // Validate event form
+  const validateEventForm = () => {
+    const errors = {};
+
+    if (!eventForm.title || eventForm.title.trim() === '') {
+      errors.title = 'Event title is required';
+    }
+
+    if (!eventForm.date) {
+      errors.date = 'Date is required';
+    }
+
+    if (!eventForm.startTime) {
+      errors.startTime = 'Start time is required';
+    }
+
+    if (!eventForm.endTime) {
+      errors.endTime = 'End time is required';
+    }
+
+    // Check if end time is after start time
+    if (eventForm.startTime && eventForm.endTime) {
+      const start = new Date(`2000-01-01T${eventForm.startTime}`);
+      const end = new Date(`2000-01-01T${eventForm.endTime}`);
+      if (end <= start) {
+        errors.endTime = 'End time must be after start time';
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Check if form is valid (for real-time button state)
+  const isFormValid = useMemo(() => {
+    return (
+      eventForm.title?.trim() !== '' &&
+      eventForm.date !== '' &&
+      eventForm.startTime !== '' &&
+      eventForm.endTime !== ''
+    );
+  }, [eventForm.title, eventForm.date, eventForm.startTime, eventForm.endTime]);
+
   // Handle date click
   const handleDateClick = (date) => {
     setSelectedDate(date);
@@ -158,19 +205,50 @@ const Calendar = () => {
     }
   };
 
-  // Handle create event
+  // Handle create/update event
   const handleCreateEvent = async () => {
+    // Validate form
+    if (!validateEventForm()) {
+      return;
+    }
+
     try {
-      await calendarService.create({
-        ...eventForm,
-        attendees: eventForm.attendees
-      });
+      if (editMode && selectedEvent) {
+        // Update existing event
+        await calendarService.update(selectedEvent.id, eventForm);
+      } else {
+        // Create new event
+        await calendarService.create({
+          ...eventForm,
+          attendees: eventForm.attendees
+        });
+      }
       fetchEvents();
       setShowEventModal(false);
       resetForm();
     } catch (err) {
-      alert('Failed to create event: ' + (err.message || 'Unknown error'));
+      alert(`Failed to ${editMode ? 'update' : 'create'} event: ` + (err.message || 'Unknown error'));
     }
+  };
+
+  // Handle edit event
+  const handleEditEvent = (event) => {
+    setEditMode(true);
+    setSelectedEvent(event);
+    setEventForm({
+      title: event.title || '',
+      type: event.type || 'class',
+      date: event.date || event.startDate || '',
+      startTime: event.startTime || '',
+      endTime: event.endTime || '',
+      location: event.location || '',
+      description: event.description || '',
+      class: event.class || '',
+      attendees: event.attendees || [],
+      color: event.color || '#3b82f6',
+      reminder: event.reminder || '15min'
+    });
+    setShowEventModal(true);
   };
 
   // Reset form
@@ -189,6 +267,8 @@ const Calendar = () => {
       reminder: '15min'
     });
     setSelectedEvent(null);
+    setValidationErrors({});
+    setEditMode(false);
   };
 
   // Handle delete event
@@ -482,7 +562,13 @@ const Calendar = () => {
                 )}
 
                 <div className="sidebar-actions">
-                  <button className="action-btn secondary">
+                  <button
+                    className="action-btn secondary"
+                    onClick={() => {
+                      handleEditEvent(selectedEvent);
+                      setSelectedEvent(null);
+                    }}
+                  >
                     <Edit2 size={18} />
                     Edit
                   </button>
@@ -503,8 +589,11 @@ const Calendar = () => {
           <div className="modal-overlay" onClick={() => setShowEventModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Create New Event</h2>
-                <button className="close-modal-btn" onClick={() => setShowEventModal(false)}>
+                <h2 className="modal-title">{editMode ? 'Edit Event' : 'Create New Event'}</h2>
+                <button className="close-modal-btn" onClick={() => {
+                  setShowEventModal(false);
+                  resetForm();
+                }}>
                   <X size={20} />
                 </button>
               </div>
@@ -515,11 +604,19 @@ const Calendar = () => {
                     <label>Event Title *</label>
                     <input
                       type="text"
-                      className="form-input"
+                      className={`form-input ${validationErrors.title ? 'error' : ''}`}
                       placeholder="Enter event title..."
                       value={eventForm.title}
-                      onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                      onChange={(e) => {
+                        setEventForm({ ...eventForm, title: e.target.value });
+                        if (validationErrors.title) {
+                          setValidationErrors(prev => ({ ...prev, title: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.title && (
+                      <span className="error-message">{validationErrors.title}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
@@ -539,30 +636,54 @@ const Calendar = () => {
                     <label>Date *</label>
                     <input
                       type="date"
-                      className="form-input"
+                      className={`form-input ${validationErrors.date ? 'error' : ''}`}
                       value={eventForm.date}
-                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                      onChange={(e) => {
+                        setEventForm({ ...eventForm, date: e.target.value });
+                        if (validationErrors.date) {
+                          setValidationErrors(prev => ({ ...prev, date: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.date && (
+                      <span className="error-message">{validationErrors.date}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>Start Time *</label>
                     <input
                       type="time"
-                      className="form-input"
+                      className={`form-input ${validationErrors.startTime ? 'error' : ''}`}
                       value={eventForm.startTime}
-                      onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
+                      onChange={(e) => {
+                        setEventForm({ ...eventForm, startTime: e.target.value });
+                        if (validationErrors.startTime) {
+                          setValidationErrors(prev => ({ ...prev, startTime: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.startTime && (
+                      <span className="error-message">{validationErrors.startTime}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>End Time *</label>
                     <input
                       type="time"
-                      className="form-input"
+                      className={`form-input ${validationErrors.endTime ? 'error' : ''}`}
                       value={eventForm.endTime}
-                      onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
+                      onChange={(e) => {
+                        setEventForm({ ...eventForm, endTime: e.target.value });
+                        if (validationErrors.endTime) {
+                          setValidationErrors(prev => ({ ...prev, endTime: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.endTime && (
+                      <span className="error-message">{validationErrors.endTime}</span>
+                    )}
                   </div>
 
                   <div className="form-field full-width">
@@ -615,12 +736,19 @@ const Calendar = () => {
               </div>
 
               <div className="modal-footer">
-                <button className="cancel-btn" onClick={() => setShowEventModal(false)}>
+                <button className="cancel-btn" onClick={() => {
+                  setShowEventModal(false);
+                  resetForm();
+                }}>
                   Cancel
                 </button>
-                <button className="submit-btn" onClick={handleCreateEvent}>
+                <button
+                  className="submit-btn"
+                  onClick={handleCreateEvent}
+                  disabled={!isFormValid}
+                >
                   <Save size={18} />
-                  Create Event
+                  {editMode ? 'Update Event' : 'Create Event'}
                 </button>
               </div>
             </div>
@@ -1250,6 +1378,25 @@ const Calendar = () => {
           box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
         }
 
+        .form-input.error,
+        .form-select.error,
+        .form-textarea.error {
+          border-color: #ef4444;
+        }
+
+        .form-input.error:focus,
+        .form-select.error:focus,
+        .form-textarea.error:focus {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .error-message {
+          font-size: 0.75rem;
+          color: #ef4444;
+          margin-top: 0.25rem;
+        }
+
         .form-textarea {
           resize: vertical;
           font-family: inherit;
@@ -1296,8 +1443,14 @@ const Calendar = () => {
           color: white;
         }
 
-        .submit-btn:hover {
+        .submit-btn:hover:not(:disabled) {
           background: var(--primary-green-hover);
+        }
+
+        .submit-btn:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          opacity: 0.6;
         }
 
         /* Responsive Design */

@@ -79,6 +79,19 @@ const StudentProfiles = () => {
     }
   };
 
+  // Handle message student (navigate to messages page)
+  const handleMessageStudent = (student) => {
+    // In a real implementation, this would navigate to Messages page with student pre-selected
+    // or open a compose message modal
+    alert(`Message functionality would open composer for ${student.name} (${student.email})`);
+  };
+
+  // Handle edit student
+  const handleEditStudent = (student) => {
+    // In a real implementation, this would open an edit modal
+    alert(`Edit functionality would open edit form for ${student.name}`);
+  };
+
   // Filter students
   const filteredStudents = useMemo(() => {
     if (!students || !Array.isArray(students)) return [];
@@ -389,15 +402,24 @@ const StudentProfiles = () => {
               </button>
 
               <div className="detail-actions">
-                <button className="action-btn secondary">
+                <button
+                  className="action-btn secondary"
+                  onClick={() => handleMessageStudent(selectedStudent)}
+                >
                   <MessageSquare size={18} />
                   Message
                 </button>
-                <button className="action-btn secondary">
+                <button
+                  className="action-btn secondary"
+                  onClick={() => handleEditStudent(selectedStudent)}
+                >
                   <Edit2 size={18} />
                   Edit
                 </button>
-                <button className="action-btn secondary">
+                <button
+                  className="action-btn secondary"
+                  onClick={() => handleExportStudent(selectedStudent.id)}
+                >
                   <Download size={18} />
                   Export
                 </button>
@@ -559,11 +581,141 @@ const StudentProfiles = () => {
 
               {activeTab === 'performance' && (
                 <div className="performance-tab">
-                  <div className="performance-summary">
-                    <h3>Academic Performance Summary</h3>
-                    <p>Detailed breakdown of {selectedStudent.name}'s academic performance across all categories.</p>
+                  <div className="performance-grid">
+                    {/* Academic Summary */}
+                    <div className="performance-card full-width">
+                      <h3 className="card-title">Academic Performance Summary</h3>
+                      <div className="performance-stats">
+                        <div className="perf-stat">
+                          <div className="perf-stat-value">{selectedStudent.averageGrade}%</div>
+                          <div className="perf-stat-label">Overall Average</div>
+                          <div className="perf-stat-change positive">+3.5% from last term</div>
+                        </div>
+                        <div className="perf-stat">
+                          <div className="perf-stat-value">{selectedStudent.gpa}</div>
+                          <div className="perf-stat-label">GPA</div>
+                          <div className="perf-stat-change positive">+0.2 from last term</div>
+                        </div>
+                        <div className="perf-stat">
+                          <div className="perf-stat-value">{selectedStudent.assignmentsCompleted}/{selectedStudent.totalAssignments}</div>
+                          <div className="perf-stat-label">Assignments Completed</div>
+                          <div className="perf-stat-change neutral">{Math.round((selectedStudent.assignmentsCompleted / selectedStudent.totalAssignments) * 100)}% completion rate</div>
+                        </div>
+                        <div className="perf-stat">
+                          <div className="perf-stat-value">#{selectedStudent.classRank || 5}</div>
+                          <div className="perf-stat-label">Class Rank</div>
+                          <div className="perf-stat-change neutral">out of {selectedStudent.classSize || 28} students</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Subject Performance */}
+                    <div className="performance-card">
+                      <h3 className="card-title">Performance by Subject</h3>
+                      <div className="subject-performance">
+                        {Object.entries(selectedStudent.performance).map(([subject, score]) => {
+                          const getGrade = (score) => {
+                            if (score >= 90) return 'A';
+                            if (score >= 80) return 'B';
+                            if (score >= 70) return 'C';
+                            if (score >= 60) return 'D';
+                            return 'F';
+                          };
+
+                          return (
+                            <div key={subject} className="subject-item">
+                              <div className="subject-header">
+                                <span className="subject-name">{subject.charAt(0).toUpperCase() + subject.slice(1)}</span>
+                                <span className="subject-grade">{getGrade(score)}</span>
+                              </div>
+                              <div className="subject-score">{score}%</div>
+                              <div className="subject-bar">
+                                <div
+                                  className="subject-fill"
+                                  style={{
+                                    width: `${score}%`,
+                                    background: score >= 90 ? '#10b981' : score >= 80 ? '#3b82f6' : score >= 70 ? '#f59e0b' : '#ef4444'
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Strengths & Areas for Improvement */}
+                    <div className="performance-card">
+                      <h3 className="card-title">Strengths & Areas for Improvement</h3>
+                      <div className="strengths-weaknesses">
+                        <div className="strength-section">
+                          <h4 className="section-subtitle"><CheckCircle size={16} className="icon-green" /> Strengths</h4>
+                          <ul className="performance-list">
+                            {Object.entries(selectedStudent.performance)
+                              .filter(([_, score]) => score >= 85)
+                              .map(([subject, score]) => (
+                                <li key={subject}>
+                                  <strong>{subject.charAt(0).toUpperCase() + subject.slice(1)}:</strong> Excellent performance at {score}%
+                                </li>
+                              ))}
+                            <li><strong>Consistency:</strong> Regular attendance and on-time assignment submission</li>
+                          </ul>
+                        </div>
+                        <div className="weakness-section">
+                          <h4 className="section-subtitle"><AlertTriangle size={16} className="icon-orange" /> Areas for Improvement</h4>
+                          <ul className="performance-list">
+                            {Object.entries(selectedStudent.performance)
+                              .filter(([_, score]) => score < 80)
+                              .map(([subject, score]) => (
+                                <li key={subject}>
+                                  <strong>{subject.charAt(0).toUpperCase() + subject.slice(1)}:</strong> Needs focus (currently {score}%)
+                                </li>
+                              ))}
+                            {Object.entries(selectedStudent.performance).every(([_, score]) => score >= 80) && (
+                              <li>No major areas of concern. Continue current performance level.</li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Grade Trend */}
+                    <div className="performance-card full-width">
+                      <h3 className="card-title">Grade Trend Over Time</h3>
+                      <div className="trend-chart">
+                        <div className="trend-info">
+                          <p className="trend-description">
+                            {selectedStudent.trend === 'up'
+                              ? `${selectedStudent.name}'s grades have been improving consistently over the past few weeks. Continue to encourage this positive trend.`
+                              : selectedStudent.trend === 'down'
+                              ? `${selectedStudent.name}'s grades have shown a slight decline. Consider scheduling a meeting to discuss any challenges.`
+                              : `${selectedStudent.name} is maintaining steady academic performance. Keep monitoring progress.`}
+                          </p>
+                        </div>
+                        <div className="trend-visualization">
+                          {selectedStudent.recentGrades.map((grade, index) => {
+                            const percentage = (grade.grade / grade.maxPoints) * 100;
+                            return (
+                              <div key={index} className="trend-bar-container">
+                                <div className="trend-label">{grade.assignment.substring(0, 15)}...</div>
+                                <div className="trend-bar-wrapper">
+                                  <div
+                                    className="trend-bar"
+                                    style={{
+                                      width: `${percentage}%`,
+                                      background: percentage >= 90 ? '#10b981' : percentage >= 80 ? '#3b82f6' : percentage >= 70 ? '#f59e0b' : '#ef4444'
+                                    }}
+                                  >
+                                    <span className="trend-value">{percentage.toFixed(0)}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {/* Add charts and detailed performance metrics here */}
                 </div>
               )}
 
@@ -1504,23 +1656,205 @@ const StudentProfiles = () => {
         }
 
         /* Performance Tab */
-        .performance-tab,
-        .performance-summary {
-          padding: var(--space-lg);
-          background: var(--bg-secondary);
-          border-radius: 0.75rem;
+        .performance-tab {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-lg);
         }
 
-        .performance-summary h3 {
-          font-size: 1.25rem;
+        .performance-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: var(--space-lg);
+        }
+
+        .performance-card {
+          background: white;
+          border: 1px solid var(--border-color);
+          border-radius: 0.75rem;
+          padding: var(--space-lg);
+        }
+
+        .performance-card.full-width {
+          grid-column: 1 / -1;
+        }
+
+        .performance-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: var(--space-lg);
+          margin-top: var(--space-md);
+        }
+
+        .perf-stat {
+          text-align: center;
+        }
+
+        .perf-stat-value {
+          font-size: 2rem;
+          font-weight: 700;
+          color: var(--primary-green);
+          margin-bottom: var(--space-xs);
+        }
+
+        .perf-stat-label {
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-xs);
+        }
+
+        .perf-stat-change {
+          font-size: 0.75rem;
+        }
+
+        .perf-stat-change.positive {
+          color: #10b981;
+        }
+
+        .perf-stat-change.neutral {
+          color: var(--text-tertiary);
+        }
+
+        .perf-stat-change.negative {
+          color: #ef4444;
+        }
+
+        .subject-performance {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+          margin-top: var(--space-md);
+        }
+
+        .subject-item {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-xs);
+        }
+
+        .subject-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .subject-name {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .subject-grade {
+          padding: 0.25rem 0.5rem;
+          background: var(--bg-secondary);
+          border-radius: 0.375rem;
+          font-weight: 700;
+          font-size: 0.875rem;
+        }
+
+        .subject-score {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .subject-bar {
+          height: 8px;
+          background: var(--bg-secondary);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .subject-fill {
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+
+        .strengths-weaknesses {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-lg);
+          margin-top: var(--space-md);
+        }
+
+        .section-subtitle {
+          display: flex;
+          align-items: center;
+          gap: var(--space-xs);
+          font-size: 1rem;
           font-weight: 600;
           color: var(--text-primary);
           margin: 0 0 var(--space-sm) 0;
         }
 
-        .performance-summary p {
-          color: var(--text-secondary);
+        .icon-green {
+          color: #10b981;
+        }
+
+        .icon-orange {
+          color: #f59e0b;
+        }
+
+        .performance-list {
           margin: 0;
+          padding-left: var(--space-lg);
+          color: var(--text-secondary);
+          line-height: 1.8;
+        }
+
+        .performance-list li {
+          margin-bottom: var(--space-xs);
+        }
+
+        .trend-chart {
+          margin-top: var(--space-md);
+        }
+
+        .trend-description {
+          color: var(--text-secondary);
+          line-height: 1.6;
+          margin: 0 0 var(--space-lg) 0;
+        }
+
+        .trend-visualization {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+        }
+
+        .trend-bar-container {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .trend-label {
+          width: 150px;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          flex-shrink: 0;
+        }
+
+        .trend-bar-wrapper {
+          flex: 1;
+          height: 32px;
+          background: var(--bg-secondary);
+          border-radius: 0.5rem;
+          overflow: hidden;
+        }
+
+        .trend-bar {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          padding: 0 var(--space-sm);
+          transition: width 0.3s ease;
+        }
+
+        .trend-value {
+          color: white;
+          font-weight: 600;
+          font-size: 0.875rem;
         }
 
         /* Responsive Design */
@@ -1530,8 +1864,13 @@ const StudentProfiles = () => {
           }
 
           .overview-grid,
-          .contact-grid {
+          .contact-grid,
+          .performance-grid {
             grid-template-columns: 1fr;
+          }
+
+          .performance-stats {
+            grid-template-columns: repeat(2, 1fr);
           }
 
           .detail-student-header {
@@ -1586,7 +1925,8 @@ const StudentProfiles = () => {
         }
 
         @media (max-width: 480px) {
-          .stats-grid {
+          .stats-grid,
+          .performance-stats {
             grid-template-columns: 1fr;
           }
         }

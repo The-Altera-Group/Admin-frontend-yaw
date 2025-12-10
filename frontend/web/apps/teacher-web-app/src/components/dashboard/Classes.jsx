@@ -7,7 +7,6 @@ import {
   Play, 
   Calendar,
   BookOpen,
-  AlertCircle,
   CheckCircle,
   Zap,
   ArrowRight
