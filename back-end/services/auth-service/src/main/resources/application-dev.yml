@@ -1,0 +1,109 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  profiles: dev
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/authdb_dev}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Actuator Configuration
+  application:
+    name: auth-service
+  
+  # H2 Console (for development only)
+  h2:
+    console:
+      path: /h2-console
+      settings:
+        web-allow-others: false
+  
+  # Security Configuration
+  security:
+    user:
+      name: ${ADMIN_USERNAME:admin}
+      password: ${ADMIN_PASSWORD:admin}
+      roles: ADMIN
+    
+  # Application Security Configuration
+  app:
+    security:
+      allowed-origins: "http://localhost:3000,http://localhost:8080"  # Add your allowed origins here
+      rate-limit:
+        capacity: 100
+        duration: 3600  # in seconds
+
+# JWT Configuration
+jwt:
+  secret: dev-secret-key-change-this-in-production
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-expiration: 604800000 # 7 days in milliseconds
+
+# Eureka Client Configuration
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    healthcheck:
+      enabled: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.altera.auth: DEBUG
+    org.springframework: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Actuator Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,prometheus
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  server:
+    port: 8081
+    servlet:
+
+# Rate Limiting
+resilience4j.ratelimiter:
+  instances:
+    authRateLimiter:
+      limit-for-period: 100
+      limit-refresh-period: 60s
+      timeout-duration: 0
+      register-health-indicator: true
+      event-consumer-buffer-size: 50
+
+# H2 Console properties
+spring.h2.console.settings:
+  web-allow-others: true
+  trace: false
+
