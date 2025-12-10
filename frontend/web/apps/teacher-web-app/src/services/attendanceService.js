@@ -13,6 +13,20 @@ const attendanceService = {
   },
 
   /**
+   * Get enriched attendance data for a class (includes all students + attendance status)
+   * This is the PRIMARY method for the attendance page
+   * @param {string} classId - Class ID
+   * @param {string} date - Date in YYYY-MM-DD format
+   * @returns {Promise} Enriched attendance data with students and statistics
+   */
+  getEnrichedAttendance: async (classId, date) => {
+    const response = await apiClient.get(`/attendance/class/${classId}/enriched`, {
+      params: { date }
+    });
+    return response.data;
+  },
+
+  /**
    * Get attendance for a specific class on a specific date
    * @param {string} classId - Class ID
    * @param {string} date - Date (YYYY-MM-DD)
@@ -27,22 +41,47 @@ const attendanceService = {
 
   /**
    * Mark attendance for a student
-   * @param {Object} attendanceData - {classId, studentId, date, status, notes}
+   * @param {Object} attendanceData - {classId, studentId, date, status, notes, time}
    * @returns {Promise} Created/updated attendance record
    */
   markAttendance: async (attendanceData) => {
-    const response = await apiClient.post('/attendance', attendanceData);
+    const response = await apiClient.post('/attendance/mark', attendanceData);
     return response.data;
   },
 
   /**
    * Bulk mark attendance
-   * @param {Object} bulkData - {classId, date, records: [{studentId, status, notes}]}
+   * @param {Object} bulkData - {classId, date, records: [{studentId, status, notes, time}]}
    * @returns {Promise} Bulk attendance result
    */
   bulkMark: async (bulkData) => {
-    const response = await apiClient.post('/attendance/bulk', bulkData);
+    const response = await apiClient.post('/attendance/bulk-mark', bulkData);
     return response.data;
+  },
+
+  /**
+   * Quick mark all students with the same status
+   * @param {string} classId - Class ID
+   * @param {string} date - Date (YYYY-MM-DD)
+   * @param {string} status - Status to mark all students (present/absent/late/excused)
+   * @param {Array} studentIds - Array of student IDs to mark
+   * @returns {Promise} Bulk attendance result
+   */
+  markAllStudents: async (classId, date, status, studentIds) => {
+    const records = studentIds.map(studentId => ({
+      studentId,
+      status,
+      time: status === 'present' ? new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : null
+    }));
+
+    return attendanceService.bulkMark({
+      classId,
+      date,
+      records
+    });
   },
 
   /**

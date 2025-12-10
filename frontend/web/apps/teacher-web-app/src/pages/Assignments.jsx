@@ -35,6 +35,7 @@ const Assignments = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showSubmissions, setShowSubmissions] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   // API integration for assignments
   const {
@@ -66,6 +67,18 @@ const Assignments = () => {
     attachments: [],
     allowLateSubmission: true,
     rubric: []
+  });
+
+  // Validation errors state
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // Submissions state
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [gradingSubmission, setGradingSubmission] = useState(null);
+  const [gradeForm, setGradeForm] = useState({
+    points: '',
+    feedback: ''
   });
 
   // Combined loading and error states
@@ -133,6 +146,118 @@ const Assignments = () => {
     };
   }, [assignments]);
 
+  // Validation function
+  const validateForm = () => {
+    const errors = {};
+
+    // Title validation
+    if (!assignmentForm.title || assignmentForm.title.trim() === '') {
+      errors.title = 'Assignment title is required';
+    }
+
+    // Class validation
+    if (!assignmentForm.class || assignmentForm.class === '') {
+      errors.class = 'Please select a class';
+    }
+
+    // Due date validation
+    if (!assignmentForm.dueDate || assignmentForm.dueDate === '') {
+      errors.dueDate = 'Due date is required';
+    } else {
+      // Check if due date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(assignmentForm.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (dueDate < today) {
+        errors.dueDate = 'Due date cannot be in the past';
+      }
+    }
+
+    // Points validation
+    if (!assignmentForm.points || assignmentForm.points <= 0) {
+      errors.points = 'Points must be greater than 0';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Check if form is valid (for disabling submit button)
+  const isFormValid = useMemo(() => {
+    return (
+      assignmentForm.title?.trim() !== '' &&
+      assignmentForm.class !== '' &&
+      assignmentForm.dueDate !== '' &&
+      assignmentForm.points > 0
+    );
+  }, [assignmentForm.title, assignmentForm.class, assignmentForm.dueDate, assignmentForm.points]);
+
+  // Fetch submissions for an assignment
+  const fetchSubmissions = async (assignmentId) => {
+    setLoadingSubmissions(true);
+    try {
+      const data = await assignmentService.getSubmissions(assignmentId);
+      setSubmissions(data?.submissions || []);
+    } catch (err) {
+      alert('Failed to load submissions: ' + (err.message || 'Unknown error'));
+      setSubmissions([]);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  // Handle viewing submissions
+  const handleViewSubmissions = (assignment) => {
+    setSelectedAssignment(assignment);
+    setShowSubmissions(true);
+    fetchSubmissions(assignment.id);
+  };
+
+  // Handle grading a submission
+  const handleStartGrading = (submission) => {
+    setGradingSubmission(submission);
+    setGradeForm({
+      points: submission.grade?.points || '',
+      feedback: submission.grade?.feedback || ''
+    });
+  };
+
+  const handleSubmitGrade = async () => {
+    if (!gradingSubmission || !selectedAssignment) return;
+
+    // Validate grade
+    const points = parseFloat(gradeForm.points);
+    if (isNaN(points) || points < 0 || points > selectedAssignment.points) {
+      alert(`Grade must be between 0 and ${selectedAssignment.points}`);
+      return;
+    }
+
+    try {
+      await assignmentService.gradeSubmission(
+        selectedAssignment.id,
+        gradingSubmission.student.id,
+        {
+          points: points,
+          feedback: gradeForm.feedback || ''
+        }
+      );
+
+      // Refresh submissions
+      await fetchSubmissions(selectedAssignment.id);
+
+      // Close grading form
+      setGradingSubmission(null);
+      setGradeForm({ points: '', feedback: '' });
+
+      // Refresh assignments to update statistics
+      fetchAssignments();
+    } catch (err) {
+      alert('Failed to submit grade: ' + (err.message || 'Unknown error'));
+    }
+  };
+
   // CRUD Operation Handlers
   const handleDeleteAssignment = async (assignmentId) => {
     if (window.confirm('Are you sure you want to delete this assignment?')) {
@@ -145,10 +270,24 @@ const Assignments = () => {
     }
   };
 
-  const handleCreateAssignment = async (formData) => {
+  const handleCreateAssignment = async () => {
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await assignmentService.create(formData);
+      if (editMode && selectedAssignment) {
+        // Update existing assignment
+        await assignmentService.update(selectedAssignment.id, assignmentForm);
+      } else {
+        // Create new assignment
+        await assignmentService.create(assignmentForm);
+      }
+
       setShowCreateModal(false);
+      setEditMode(false);
+      setSelectedAssignment(null);
       setAssignmentForm({
         title: '',
         description: '',
@@ -163,10 +302,54 @@ const Assignments = () => {
         allowLateSubmission: true,
         rubric: []
       });
+      setValidationErrors({});
       fetchAssignments();
     } catch (err) {
-      alert('Failed to create assignment: ' + (err.message || 'Unknown error'));
+      alert(`Failed to ${editMode ? 'update' : 'create'} assignment: ` + (err.message || 'Unknown error'));
     }
+  };
+
+  // Handle edit assignment
+  const handleEditAssignment = (assignment) => {
+    setEditMode(true);
+    setSelectedAssignment(assignment);
+    setAssignmentForm({
+      title: assignment.title || '',
+      description: assignment.description || '',
+      class: assignment.classId || assignment.class || '',
+      type: assignment.type || 'homework',
+      points: assignment.points || 100,
+      dueDate: assignment.dueDate ? assignment.dueDate.split('T')[0] : '',
+      dueTime: assignment.dueTime || '23:59',
+      assignedDate: assignment.assignedDate ? assignment.assignedDate.split('T')[0] : new Date().toISOString().split('T')[0],
+      instructions: assignment.instructions || '',
+      attachments: assignment.attachments || [],
+      allowLateSubmission: assignment.allowLateSubmission !== undefined ? assignment.allowLateSubmission : true,
+      rubric: assignment.rubric || []
+    });
+    setShowCreateModal(true);
+  };
+
+  // Handle cancel modal
+  const handleCancelModal = () => {
+    setShowCreateModal(false);
+    setEditMode(false);
+    setSelectedAssignment(null);
+    setAssignmentForm({
+      title: '',
+      description: '',
+      class: '',
+      type: 'homework',
+      points: 100,
+      dueDate: '',
+      dueTime: '23:59',
+      assignedDate: new Date().toISOString().split('T')[0],
+      instructions: '',
+      attachments: [],
+      allowLateSubmission: true,
+      rubric: []
+    });
+    setValidationErrors({});
   };
 
   // Get submission status
@@ -394,19 +577,22 @@ const Assignments = () => {
                     <div className="card-actions">
                       <button
                         className="icon-btn"
-                        onClick={() => {
-                          setSelectedAssignment(assignment);
-                          setShowSubmissions(true);
-                        }}
+                        onClick={() => handleViewSubmissions(assignment)}
+                        title="View Submissions"
                       >
                         <Eye size={16} />
                       </button>
-                      <button className="icon-btn">
+                      <button
+                        className="icon-btn"
+                        onClick={() => handleEditAssignment(assignment)}
+                        title="Edit Assignment"
+                      >
                         <Edit2 size={16} />
                       </button>
                       <button
                         className="icon-btn delete"
                         onClick={() => handleDeleteAssignment(assignment.id)}
+                        title="Delete Assignment"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -493,13 +679,13 @@ const Assignments = () => {
           )}
         </div>
 
-        {/* Create Assignment Modal */}
+        {/* Create/Edit Assignment Modal */}
         {showCreateModal && (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-overlay" onClick={handleCancelModal}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Create New Assignment</h2>
-                <button className="close-modal-btn" onClick={() => setShowCreateModal(false)}>
+                <h2 className="modal-title">{editMode ? 'Edit Assignment' : 'Create New Assignment'}</h2>
+                <button className="close-modal-btn" onClick={handleCancelModal}>
                   <X size={20} />
                 </button>
               </div>
@@ -510,11 +696,19 @@ const Assignments = () => {
                     <label>Assignment Title *</label>
                     <input
                       type="text"
-                      className="form-input"
+                      className={`form-input ${validationErrors.title ? 'error' : ''}`}
                       placeholder="Enter assignment title..."
                       value={assignmentForm.title}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, title: e.target.value }))}
+                      onChange={(e) => {
+                        setAssignmentForm(prev => ({ ...prev, title: e.target.value }));
+                        if (validationErrors.title) {
+                          setValidationErrors(prev => ({ ...prev, title: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.title && (
+                      <span className="error-message">{validationErrors.title}</span>
+                    )}
                   </div>
 
                   <div className="form-field full-width">
@@ -531,15 +725,23 @@ const Assignments = () => {
                   <div className="form-field">
                     <label>Class *</label>
                     <select
-                      className="form-select"
+                      className={`form-select ${validationErrors.class ? 'error' : ''}`}
                       value={assignmentForm.class}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, class: e.target.value }))}
+                      onChange={(e) => {
+                        setAssignmentForm(prev => ({ ...prev, class: e.target.value }));
+                        if (validationErrors.class) {
+                          setValidationErrors(prev => ({ ...prev, class: undefined }));
+                        }
+                      }}
                     >
                       <option value="">Select class...</option>
                       {classes.map(cls => (
                         <option key={cls.id} value={cls.id}>{cls.name}</option>
                       ))}
                     </select>
+                    {validationErrors.class && (
+                      <span className="error-message">{validationErrors.class}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
@@ -556,24 +758,40 @@ const Assignments = () => {
                   </div>
 
                   <div className="form-field">
-                    <label>Points</label>
+                    <label>Points *</label>
                     <input
                       type="number"
-                      className="form-input"
+                      className={`form-input ${validationErrors.points ? 'error' : ''}`}
                       value={assignmentForm.points}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, points: parseInt(e.target.value) }))}
-                      min="0"
+                      onChange={(e) => {
+                        setAssignmentForm(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }));
+                        if (validationErrors.points) {
+                          setValidationErrors(prev => ({ ...prev, points: undefined }));
+                        }
+                      }}
+                      min="1"
                     />
+                    {validationErrors.points && (
+                      <span className="error-message">{validationErrors.points}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>Due Date *</label>
                     <input
                       type="date"
-                      className="form-input"
+                      className={`form-input ${validationErrors.dueDate ? 'error' : ''}`}
                       value={assignmentForm.dueDate}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                      onChange={(e) => {
+                        setAssignmentForm(prev => ({ ...prev, dueDate: e.target.value }));
+                        if (validationErrors.dueDate) {
+                          setValidationErrors(prev => ({ ...prev, dueDate: undefined }));
+                        }
+                      }}
                     />
+                    {validationErrors.dueDate && (
+                      <span className="error-message">{validationErrors.dueDate}</span>
+                    )}
                   </div>
 
                   <div className="form-field">
@@ -611,12 +829,215 @@ const Assignments = () => {
               </div>
 
               <div className="modal-footer">
-                <button className="cancel-btn" onClick={() => setShowCreateModal(false)}>
+                <button className="cancel-btn" onClick={handleCancelModal}>
                   Cancel
                 </button>
-                <button className="submit-btn" onClick={handleCreateAssignment}>
+                <button
+                  className="submit-btn"
+                  onClick={handleCreateAssignment}
+                  disabled={!isFormValid}
+                >
                   <Save size={18} />
-                  Create Assignment
+                  {editMode ? 'Update Assignment' : 'Create Assignment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submissions Modal */}
+        {showSubmissions && selectedAssignment && (
+          <div className="modal-overlay" onClick={() => {
+            setShowSubmissions(false);
+            setSelectedAssignment(null);
+            setSubmissions([]);
+            setGradingSubmission(null);
+          }}>
+            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <h2 className="modal-title">Submissions: {selectedAssignment.title}</h2>
+                  <p className="modal-subtitle">
+                    {selectedAssignment.className} • Due: {formatDate(selectedAssignment.dueDate)}
+                  </p>
+                </div>
+                <button className="close-modal-btn" onClick={() => {
+                  setShowSubmissions(false);
+                  setSelectedAssignment(null);
+                  setSubmissions([]);
+                  setGradingSubmission(null);
+                }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body">
+                {loadingSubmissions ? (
+                  <div className="loading-state">
+                    <Loader size={32} className="spinner" />
+                    <p>Loading submissions...</p>
+                  </div>
+                ) : submissions.length === 0 ? (
+                  <div className="empty-state-small">
+                    <FileText size={48} className="empty-icon" />
+                    <p>No submissions yet</p>
+                  </div>
+                ) : (
+                  <div className="submissions-list">
+                    {submissions.map(submission => {
+                      const isLate = submission.submittedAt && new Date(submission.submittedAt) > new Date(selectedAssignment.dueDate);
+                      const statusInfo = submission.status === 'submitted'
+                        ? { label: isLate ? 'Late' : 'Submitted', color: isLate ? '#f59e0b' : '#10b981' }
+                        : submission.status === 'graded'
+                        ? { label: 'Graded', color: '#3b82f6' }
+                        : { label: 'Not Submitted', color: '#9ca3af' };
+
+                      return (
+                        <div key={submission.student.id} className="submission-item">
+                          <div className="submission-header">
+                            <div className="student-info">
+                              <div className="student-avatar">
+                                {submission.student.avatar ? (
+                                  <img src={submission.student.avatar} alt={submission.student.name} />
+                                ) : (
+                                  <span>{submission.student.name.split(' ').map(n => n[0]).join('')}</span>
+                                )}
+                              </div>
+                              <div>
+                                <div className="student-name">{submission.student.name}</div>
+                                <div className="student-id">{submission.student.studentId}</div>
+                              </div>
+                            </div>
+
+                            <div className="submission-info">
+                              <div
+                                className="status-badge"
+                                style={{ background: statusInfo.color + '20', color: statusInfo.color }}
+                              >
+                                {statusInfo.label}
+                              </div>
+                              {submission.status !== 'not_submitted' && (
+                                <span className="submission-time">
+                                  {new Date(submission.submittedAt).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {submission.status !== 'not_submitted' && (
+                            <div className="submission-content">
+                              {submission.files && submission.files.length > 0 && (
+                                <div className="submission-files">
+                                  <strong>Files:</strong>
+                                  {submission.files.map((file, idx) => (
+                                    <button key={idx} className="file-link">
+                                      <FileText size={14} />
+                                      {file.filename}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              {submission.comment && (
+                                <div className="submission-comment">
+                                  <strong>Student Comment:</strong>
+                                  <p>{submission.comment}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Grade Section */}
+                          {submission.status !== 'not_submitted' && (
+                            <div className="grade-section">
+                              {gradingSubmission?.student.id === submission.student.id ? (
+                                <div className="grade-form">
+                                  <div className="grade-inputs">
+                                    <div className="grade-field">
+                                      <label>Points (out of {selectedAssignment.points})</label>
+                                      <input
+                                        type="number"
+                                        className="form-input-small"
+                                        value={gradeForm.points}
+                                        onChange={(e) => setGradeForm(prev => ({ ...prev, points: e.target.value }))}
+                                        min="0"
+                                        max={selectedAssignment.points}
+                                        step="0.5"
+                                      />
+                                    </div>
+                                    <div className="grade-field full">
+                                      <label>Feedback</label>
+                                      <textarea
+                                        className="form-textarea-small"
+                                        value={gradeForm.feedback}
+                                        onChange={(e) => setGradeForm(prev => ({ ...prev, feedback: e.target.value }))}
+                                        rows="2"
+                                        placeholder="Optional feedback for student..."
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grade-actions">
+                                    <button className="cancel-btn-small" onClick={() => setGradingSubmission(null)}>
+                                      Cancel
+                                    </button>
+                                    <button className="submit-btn-small" onClick={handleSubmitGrade}>
+                                      <Save size={16} />
+                                      Submit Grade
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : submission.grade ? (
+                                <div className="grade-display">
+                                  <div className="grade-score">
+                                    <strong>Grade:</strong>
+                                    <span className="score">{submission.grade.points}/{selectedAssignment.points}</span>
+                                    <span className="percentage">({((submission.grade.points / selectedAssignment.points) * 100).toFixed(0)}%)</span>
+                                  </div>
+                                  {submission.grade.feedback && (
+                                    <div className="grade-feedback">
+                                      <strong>Feedback:</strong>
+                                      <p>{submission.grade.feedback}</p>
+                                    </div>
+                                  )}
+                                  <button
+                                    className="edit-grade-btn"
+                                    onClick={() => handleStartGrading(submission)}
+                                  >
+                                    <Edit2 size={14} />
+                                    Edit Grade
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="grade-btn"
+                                  onClick={() => handleStartGrading(submission)}
+                                >
+                                  <CheckCircle size={16} />
+                                  Grade Submission
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
+                <div className="submission-summary">
+                  <span>Total: {submissions.length}</span>
+                  <span>Submitted: {submissions.filter(s => s.status !== 'not_submitted').length}</span>
+                  <span>Graded: {submissions.filter(s => s.status === 'graded').length}</span>
+                </div>
+                <button className="cancel-btn" onClick={() => {
+                  setShowSubmissions(false);
+                  setSelectedAssignment(null);
+                  setSubmissions([]);
+                  setGradingSubmission(null);
+                }}>
+                  Close
                 </button>
               </div>
             </div>
@@ -1119,6 +1540,10 @@ const Assignments = () => {
           flex-direction: column;
         }
 
+        .modal-content.large {
+          max-width: 900px;
+        }
+
         .modal-header {
           display: flex;
           justify-content: space-between;
@@ -1132,6 +1557,12 @@ const Assignments = () => {
           font-weight: 600;
           color: var(--text-primary);
           margin: 0;
+        }
+
+        .modal-subtitle {
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          margin: 0.25rem 0 0 0;
         }
 
         .close-modal-btn {
@@ -1196,6 +1627,26 @@ const Assignments = () => {
           box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
         }
 
+        .form-input.error,
+        .form-select.error,
+        .form-textarea.error {
+          border-color: #ef4444;
+        }
+
+        .form-input.error:focus,
+        .form-select.error:focus,
+        .form-textarea.error:focus {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .error-message {
+          font-size: 0.75rem;
+          color: #ef4444;
+          margin-top: 0.25rem;
+          display: block;
+        }
+
         .form-textarea {
           resize: vertical;
           font-family: inherit;
@@ -1255,8 +1706,319 @@ const Assignments = () => {
           color: white;
         }
 
-        .submit-btn:hover {
+        .submit-btn:hover:not(:disabled) {
           background: var(--primary-green-hover);
+        }
+
+        .submit-btn:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        /* Submissions Modal */
+        .empty-state-small {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: var(--space-xl);
+          text-align: center;
+        }
+
+        .empty-state-small .empty-icon {
+          color: var(--text-tertiary);
+          opacity: 0.3;
+          margin-bottom: var(--space-md);
+        }
+
+        .empty-state-small p {
+          color: var(--text-tertiary);
+          margin: 0;
+        }
+
+        .submissions-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+        }
+
+        .submission-item {
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: 0.75rem;
+          padding: var(--space-lg);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+        }
+
+        .submission-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .student-info {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .student-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: var(--primary-green);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 0.875rem;
+          overflow: hidden;
+        }
+
+        .student-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .student-name {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .student-id {
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+          font-family: 'Courier New', monospace;
+        }
+
+        .submission-info {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+          flex-wrap: wrap;
+        }
+
+        .submission-time {
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+        }
+
+        .submission-content {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-sm);
+          padding: var(--space-md);
+          background: white;
+          border-radius: 0.5rem;
+        }
+
+        .submission-files {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          flex-wrap: wrap;
+        }
+
+        .file-link {
+          display: flex;
+          align-items: center;
+          gap: var(--space-xs);
+          padding: 0.375rem 0.75rem;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          color: var(--text-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .file-link:hover {
+          background: white;
+          border-color: var(--primary-green);
+          color: var(--primary-green);
+        }
+
+        .submission-comment p {
+          margin: 0.25rem 0 0 0;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+
+        .grade-section {
+          border-top: 1px solid var(--border-color);
+          padding-top: var(--space-md);
+        }
+
+        .grade-form {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+          background: white;
+          padding: var(--space-md);
+          border-radius: 0.5rem;
+        }
+
+        .grade-inputs {
+          display: grid;
+          grid-template-columns: 200px 1fr;
+          gap: var(--space-md);
+        }
+
+        .grade-field {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-xs);
+        }
+
+        .grade-field.full {
+          grid-column: 1 / -1;
+        }
+
+        .grade-field label {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+
+        .form-input-small,
+        .form-textarea-small {
+          padding: 0.5rem;
+          border: 1px solid var(--border-color);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          transition: all 0.2s ease;
+        }
+
+        .form-input-small:focus,
+        .form-textarea-small:focus {
+          outline: none;
+          border-color: var(--primary-green);
+          box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+        }
+
+        .form-textarea-small {
+          resize: vertical;
+          font-family: inherit;
+        }
+
+        .grade-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: var(--space-sm);
+        }
+
+        .cancel-btn-small,
+        .submit-btn-small,
+        .grade-btn,
+        .edit-grade-btn {
+          display: flex;
+          align-items: center;
+          gap: var(--space-xs);
+          padding: 0.5rem 1rem;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .cancel-btn-small {
+          background: white;
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
+        }
+
+        .cancel-btn-small:hover {
+          background: var(--bg-secondary);
+        }
+
+        .submit-btn-small {
+          background: var(--primary-green);
+          border: none;
+          color: white;
+        }
+
+        .submit-btn-small:hover {
+          background: var(--primary-green-hover);
+        }
+
+        .grade-btn {
+          background: var(--primary-green);
+          border: none;
+          color: white;
+        }
+
+        .grade-btn:hover {
+          background: var(--primary-green-hover);
+        }
+
+        .edit-grade-btn {
+          background: white;
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
+        }
+
+        .edit-grade-btn:hover {
+          background: var(--bg-secondary);
+          color: var(--text-primary);
+        }
+
+        .grade-display {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-sm);
+          background: white;
+          padding: var(--space-md);
+          border-radius: 0.5rem;
+        }
+
+        .grade-score {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          font-size: 0.875rem;
+        }
+
+        .grade-score .score {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--primary-green);
+        }
+
+        .grade-score .percentage {
+          color: var(--text-tertiary);
+        }
+
+        .grade-feedback {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .grade-feedback p {
+          margin: 0;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+
+        .submission-summary {
+          display: flex;
+          gap: var(--space-lg);
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+        }
+
+        .submission-summary span {
+          font-weight: 500;
         }
 
         /* Responsive Design */

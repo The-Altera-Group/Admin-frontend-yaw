@@ -62,6 +62,12 @@ const ResourceLibrary = () => {
     shareWith: 'none'
   });
 
+  // Upload progress and preview state
+  const [uploadProgress, setUploadProgress] = useState({});
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewResource, setPreviewResource] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+
   // New folder form
   const [folderForm, setFolderForm] = useState({
     name: '',
@@ -200,20 +206,34 @@ const ResourceLibrary = () => {
 
   // Handle upload
   const handleUpload = async () => {
+    // Validate
+    if (uploadForm.files.length === 0) {
+      setValidationErrors({ files: 'Please select at least one file' });
+      return;
+    }
+
     try {
-      // Note: In production, this would handle actual file upload with progress
-      // For now, we'll just simulate the upload
-      if (uploadForm.files.length > 0) {
-        // Upload each file
-        for (const file of uploadForm.files) {
-          await resourceService.upload(file, {
-            folderId: uploadForm.folder,
-            tags: uploadForm.tags,
-            shareWith: uploadForm.shareWith !== 'none' ? [uploadForm.shareWith] : []
-          });
-        }
-        fetchResources();
+      // Upload each file with progress tracking
+      for (let i = 0; i < uploadForm.files.length; i++) {
+        const file = uploadForm.files[i];
+
+        // Simulate upload progress
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+
+        await resourceService.upload(file, {
+          folderId: uploadForm.folder,
+          tags: uploadForm.tags,
+          shareWith: uploadForm.shareWith !== 'none' ? [uploadForm.shareWith] : [],
+          onProgress: (progress) => {
+            setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+          }
+        });
+
+        // Set to 100% when complete
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
       }
+
+      fetchResources();
       setShowUploadModal(false);
       setUploadForm({
         files: [],
@@ -221,6 +241,8 @@ const ResourceLibrary = () => {
         tags: [],
         shareWith: 'none'
       });
+      setUploadProgress({});
+      setValidationErrors({});
     } catch (err) {
       alert('Failed to upload files: ' + (err.message || 'Unknown error'));
     }
@@ -263,6 +285,41 @@ const ResourceLibrary = () => {
     } catch (err) {
       alert('Failed to share resource: ' + (err.message || 'Unknown error'));
     }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+
+    // Validate files
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const validFiles = [];
+    const errors = {};
+
+    selectedFiles.forEach(file => {
+      if (file.size > maxSize) {
+        errors.size = `File "${file.name}" exceeds 50MB limit`;
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    setValidationErrors(errors);
+    setUploadForm(prev => ({ ...prev, files: [...prev.files, ...validFiles] }));
+  };
+
+  // Remove file from upload list
+  const handleRemoveFile = (index) => {
+    setUploadForm(prev => ({
+      ...prev,
+      files: prev.files.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Handle preview
+  const handlePreview = (resource) => {
+    setPreviewResource(resource);
+    setShowPreview(true);
   };
 
   return (
@@ -514,7 +571,10 @@ const ResourceLibrary = () => {
                         </button>
                         <button
                           className="icon-btn"
-                          onClick={() => resourceService.trackView(resource.id).catch(() => {})}
+                          onClick={() => {
+                            resourceService.trackView(resource.id).catch(() => {});
+                            handlePreview(resource);
+                          }}
                           title="View"
                         >
                           <Eye size={16} />
@@ -566,8 +626,53 @@ const ResourceLibrary = () => {
                 <div className="upload-area">
                   <Upload size={48} className="upload-icon" />
                   <p className="upload-text">Drag and drop files here or click to browse</p>
-                  <input type="file" className="file-input" multiple />
+                  <input
+                    type="file"
+                    className="file-input"
+                    multiple
+                    onChange={handleFileSelect}
+                  />
                 </div>
+
+                {validationErrors.files && (
+                  <div className="error-message">{validationErrors.files}</div>
+                )}
+                {validationErrors.size && (
+                  <div className="error-message">{validationErrors.size}</div>
+                )}
+
+                {/* Selected Files List */}
+                {uploadForm.files.length > 0 && (
+                  <div className="selected-files">
+                    <div className="files-header">
+                      <strong>Selected Files ({uploadForm.files.length})</strong>
+                    </div>
+                    {uploadForm.files.map((file, index) => (
+                      <div key={index} className="file-item">
+                        <div className="file-info">
+                          <File size={20} />
+                          <span className="file-name">{file.name}</span>
+                          <span className="file-size">{formatSize(file.size)}</span>
+                        </div>
+                        <button
+                          className="remove-file-btn"
+                          onClick={() => handleRemoveFile(index)}
+                        >
+                          <X size={16} />
+                        </button>
+                        {uploadProgress[file.name] !== undefined && (
+                          <div className="upload-progress-bar">
+                            <div
+                              className="upload-progress-fill"
+                              style={{ width: `${uploadProgress[file.name]}%` }}
+                            />
+                            <span className="progress-text">{uploadProgress[file.name]}%</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="form-field">
                   <label>Save to Folder</label>
@@ -577,7 +682,7 @@ const ResourceLibrary = () => {
                     onChange={(e) => setUploadForm(prev => ({ ...prev, folder: e.target.value }))}
                   >
                     <option value="">Select folder...</option>
-                    {folders.map(folder => (
+                    {folders && folders.map(folder => (
                       <option key={folder.id} value={folder.id}>{folder.name}</option>
                     ))}
                   </select>
@@ -676,6 +781,96 @@ const ResourceLibrary = () => {
                 <button className="submit-btn" onClick={handleCreateFolder}>
                   <Save size={18} />
                   Create Folder
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* File Preview Modal */}
+        {showPreview && previewResource && (
+          <div className="modal-overlay" onClick={() => setShowPreview(false)}>
+            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">{previewResource.name}</h2>
+                <button className="close-modal-btn" onClick={() => setShowPreview(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body preview-body">
+                <div className="preview-info">
+                  <div className="preview-meta">
+                    <div className="meta-item">
+                      <strong>Type:</strong> {previewResource.type?.toUpperCase() || 'File'}
+                    </div>
+                    <div className="meta-item">
+                      <strong>Size:</strong> {formatSize(previewResource.size || 0)}
+                    </div>
+                    <div className="meta-item">
+                      <strong>Uploaded:</strong> {formatDate(previewResource.uploadedDate || previewResource.createdAt)}
+                    </div>
+                    {previewResource.uploadedBy && (
+                      <div className="meta-item">
+                        <strong>By:</strong> {previewResource.uploadedBy}
+                      </div>
+                    )}
+                  </div>
+
+                  {previewResource.tags && previewResource.tags.length > 0 && (
+                    <div className="preview-tags">
+                      <strong>Tags:</strong>
+                      <div className="tag-list">
+                        {previewResource.tags.map((tag, index) => (
+                          <span key={index} className="tag-badge">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="preview-content">
+                  {previewResource.type === 'image' ? (
+                    <img
+                      src={previewResource.url || previewResource.thumbnail}
+                      alt={previewResource.name}
+                      className="preview-image"
+                    />
+                  ) : previewResource.type === 'pdf' ? (
+                    <div className="preview-placeholder">
+                      <FileText size={64} />
+                      <p>PDF Preview</p>
+                      <p className="preview-note">Click download to view the full PDF</p>
+                    </div>
+                  ) : previewResource.type === 'video' ? (
+                    <video controls className="preview-video">
+                      <source src={previewResource.url} />
+                      Your browser does not support video playback.
+                    </video>
+                  ) : (
+                    <div className="preview-placeholder">
+                      {React.createElement(getFileIcon(previewResource.type).icon, { size: 64 })}
+                      <p>{previewResource.name}</p>
+                      <p className="preview-note">Preview not available for this file type</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  className="action-btn secondary"
+                  onClick={() => handleDownload(previewResource.id)}
+                >
+                  <Download size={18} />
+                  Download
+                </button>
+                <button className="action-btn secondary">
+                  <Share2 size={18} />
+                  Share
+                </button>
+                <button className="cancel-btn" onClick={() => setShowPreview(false)}>
+                  Close
                 </button>
               </div>
             </div>
@@ -1301,6 +1496,177 @@ const ResourceLibrary = () => {
 
         .file-input {
           display: none;
+        }
+
+        .error-message {
+          color: #ef4444;
+          font-size: 0.875rem;
+          margin-top: 0.5rem;
+        }
+
+        /* Selected Files List */
+        .selected-files {
+          background: var(--bg-secondary);
+          border-radius: 0.75rem;
+          padding: var(--space-md);
+          margin: var(--space-md) 0;
+        }
+
+        .files-header {
+          margin-bottom: var(--space-md);
+          color: var(--text-primary);
+        }
+
+        .file-item {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-xs);
+          padding: var(--space-sm);
+          background: white;
+          border: 1px solid var(--border-color);
+          border-radius: 0.5rem;
+          margin-bottom: var(--space-sm);
+        }
+
+        .file-info {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+        }
+
+        .file-name {
+          flex: 1;
+          font-size: 0.875rem;
+          color: var(--text-primary);
+        }
+
+        .file-size {
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+        }
+
+        .remove-file-btn {
+          padding: 0.25rem;
+          background: transparent;
+          border: none;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          border-radius: 0.25rem;
+        }
+
+        .remove-file-btn:hover {
+          background: var(--bg-secondary);
+          color: #ef4444;
+        }
+
+        /* Upload Progress */
+        .upload-progress-bar {
+          position: relative;
+          height: 20px;
+          background: var(--bg-secondary);
+          border-radius: 10px;
+          overflow: hidden;
+        }
+
+        .upload-progress-fill {
+          height: 100%;
+          background: var(--primary-green);
+          transition: width 0.3s ease;
+        }
+
+        .progress-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        /* Preview Modal */
+        .preview-body {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-lg);
+        }
+
+        .preview-info {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+        }
+
+        .preview-meta {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: var(--space-sm);
+        }
+
+        .meta-item {
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+        }
+
+        .meta-item strong {
+          color: var(--text-primary);
+          margin-right: var(--space-xs);
+        }
+
+        .preview-tags {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-xs);
+        }
+
+        .tag-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-xs);
+        }
+
+        .tag-badge {
+          padding: 0.25rem 0.5rem;
+          background: var(--bg-secondary);
+          border-radius: 0.375rem;
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+        }
+
+        .preview-content {
+          min-height: 400px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--bg-secondary);
+          border-radius: 0.75rem;
+          padding: var(--space-lg);
+        }
+
+        .preview-image {
+          max-width: 100%;
+          max-height: 600px;
+          border-radius: 0.5rem;
+        }
+
+        .preview-video {
+          max-width: 100%;
+          max-height: 600px;
+          border-radius: 0.5rem;
+        }
+
+        .preview-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-md);
+          text-align: center;
+          color: var(--text-tertiary);
+        }
+
+        .preview-note {
+          font-size: 0.875rem;
+          color: var(--text-secondary);
         }
 
         .form-field {
