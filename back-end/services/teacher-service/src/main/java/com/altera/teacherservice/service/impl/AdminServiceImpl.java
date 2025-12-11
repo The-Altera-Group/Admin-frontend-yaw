@@ -7,7 +7,6 @@ import com.altera.teacherservice.repository.TeacherRepository;
 import com.altera.teacherservice.service.AdminService;
 import com.altera.teacherservice.service.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +24,6 @@ public class AdminServiceImpl implements AdminService {
     private static final String DEFAULT_EMPLOYEE_ID_PREFIX = "TCH-";
 
     private final TeacherRepository teacherRepository;
-    private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
     @Override
@@ -38,7 +36,6 @@ public class AdminServiceImpl implements AdminService {
 
         // Generate a random password
         String password = generateRandomPassword();
-        String encodedPassword = passwordEncoder.encode(password);
 
         // Create and save teacher
         Teacher teacher = Teacher.builder()
@@ -47,7 +44,7 @@ public class AdminServiceImpl implements AdminService {
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .email(request.getEmail())
-                .password(encodedPassword)
+                .password(password)
                 .phoneNumber(request.getPhoneNumber())
                 .address(DEFAULT_ADDRESS)
                 .isActive(true)
